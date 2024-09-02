@@ -16,10 +16,10 @@
   "environment": "*",
   "entrypoints": {
     "main": [
-      "com.landis.nonatomic.fabric.ExampleModFabric"
+      "com.landis.nonatomic.fabric.Nonatomic"
     ],
     "client": [
-      "com.landis.nonatomic.fabric.client.ExampleModFabricClient"
+      "com.landis.nonatomic.fabric.client.ClientInit"
     ]
   },
   "mixins": [
