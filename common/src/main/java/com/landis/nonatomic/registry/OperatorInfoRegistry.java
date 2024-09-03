@@ -13,7 +13,7 @@ import java.util.function.Supplier;
 public class OperatorInfoRegistry {
     public static final DeferredRegister<Codec<? extends OperatorInfo>> REGISTRY = DeferredRegister.create(Nonatomic.MOD_ID, Registries.Keys.OPERATOR_INFO);
 
-    public static final RegistrySupplier<Codec<Deploy>> DEPLOY = REGISTRY.register("deploy", () -> Deploy.CODEC);
+//    public static final RegistrySupplier<Codec<Deploy>> DEPLOY = REGISTRY.register("deploy", () -> Deploy.CODEC);
 
 //    public static final RegistrySupplier<Codec<OperatorInfo<?>>> DEPLOY = REGISTRY.register("deploy", () -> getOperatorInfoCodec(Deploy.CODEC));
 //
