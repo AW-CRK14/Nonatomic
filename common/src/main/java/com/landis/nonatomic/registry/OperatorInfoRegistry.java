@@ -3,12 +3,8 @@ package com.landis.nonatomic.registry;
 import com.landis.nonatomic.Nonatomic;
 import com.landis.nonatomic.Registries;
 import com.landis.nonatomic.core.OperatorInfo;
-import com.landis.nonatomic.datagroup.Deploy;
 import com.mojang.serialization.Codec;
 import dev.architectury.registry.registries.DeferredRegister;
-import dev.architectury.registry.registries.RegistrySupplier;
-
-import java.util.function.Supplier;
 
 public class OperatorInfoRegistry {
     public static final DeferredRegister<Codec<? extends OperatorInfo>> REGISTRY = DeferredRegister.create(Nonatomic.MOD_ID, Registries.Keys.OPERATOR_INFO);

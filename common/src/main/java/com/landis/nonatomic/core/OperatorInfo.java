@@ -20,10 +20,14 @@ public abstract class OperatorInfo {
      */
     public abstract void merge(final OperatorInfo newData);
 
-    public void init(Operator owner) {
-        this.operator = owner;
+    public void init(Operator operator) {
+        this.operator = operator;
     }
 
-    public void preLogout() {
+
+    public void login() {
+    }
+
+    public void logout() {
     }
 }

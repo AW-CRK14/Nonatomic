@@ -3,9 +3,7 @@ package com.landis.nonatomic.core;
 import com.landis.nonatomic.EventHooks;
 import com.landis.nonatomic.Nonatomic;
 import com.landis.nonatomic.Registries;
-import com.landis.nonatomic.core.player_opehandler.OpeHandler;
 import com.landis.nonatomic.misc.LevelAndPosRecorder;
-import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.UUIDUtil;
@@ -16,7 +14,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.system.NonnullDefault;
 
 import java.util.*;
 
@@ -41,8 +38,6 @@ public class Operator {
     public final Identifier identifier;
     public final HashMap<Codec<? extends OperatorInfo>, OperatorInfo> infos = new HashMap<>();
 
-    @NonnullDefault
-    private Player player;
     private OpeHandler opeHandler;
 
     @Nullable
@@ -56,6 +51,10 @@ public class Operator {
         return status;
     }
 
+    public void skipResting() {
+        if (status == STATUS_REST) status = STATUS_READY;
+    }
+
     public @Nullable OperatorEntity getEntity() {
         return entity;
     }
@@ -64,8 +63,8 @@ public class Operator {
         return entityFinderInfo;
     }
 
-    public Player getPlayer() {
-        return player;
+    public OpeHandler getOpeHandler() {
+        return opeHandler;
     }
 
     public void refreshLastPos(LevelAndPosRecorder recorder) {
@@ -93,29 +92,29 @@ public class Operator {
     }
 
 
-    public void init(Player player, OpeHandler handler) {
-        this.player = player;
+    public void init(OpeHandler handler) {
         this.opeHandler = handler;
+        infos.values().forEach(info -> info.init(this));
+    }
 
+    public void login(Player player) {
         if (player instanceof ServerPlayer serverPlayer) {
             switch (loginActionFlag) {
                 case 0 -> disconnectWithEntity();
-                case 1 -> deploy(false);
+                case 1 -> deploy(false, false);
                 case 2 ->
                         findEntity(serverPlayer.getServer()).ifPresentOrElse(this::initEntity, this::disconnectWithEntity);
             }
         }
 
-        for (OperatorInfo info : infos.values()) {
-            info.init(this);
-        }
+        infos.values().forEach(OperatorInfo::login);
     }
 
-    protected void preLogout() {
-        if (status == STATUS_TRACKING && player instanceof ServerPlayer serverPlayer) {
+    public void logout() {
+        if (status == STATUS_TRACKING) {
             if (entity == null)
                 disconnectWithEntity();
-            int value = EventHooks.allowOperatorStayDeploying(serverPlayer, this, entity);
+            int value = EventHooks.allowOperatorStayDeploying(opeHandler.owner().left().get(), this, entity);
             switch (value & 0b11) {
                 case 0b11, 0b01 -> {//保持存在
                     if (entityFinderInfo.isPresent()) {
@@ -136,8 +135,7 @@ public class Operator {
                 }
             }
         }
-
-        infos.values().forEach(OperatorInfo::preLogout);
+        infos.values().forEach(OperatorInfo::logout);
     }
 
 
@@ -145,8 +143,8 @@ public class Operator {
 
 
     public OperatorEntity getEntityTrackingOnly() {
-        if (entity != null || !(player instanceof ServerPlayer serverPlayer)) return entity;
-        Optional<OperatorEntity> e = findEntity(serverPlayer.getServer());
+        if (entity != null || opeHandler.owner().left().isEmpty()) return entity;
+        Optional<OperatorEntity> e = findEntity(opeHandler.owner().left().get().getServer());
         if (status == STATUS_TRACKING && e.isPresent()) {
             this.entity = e.get();
         }
@@ -188,17 +186,18 @@ public class Operator {
         //TODO 进行实体数据合并
     }
 
-    //清除实体信息
+
     public void disconnectWithEntity() {
         disconnectWithEntity(Entity.RemovalReason.DISCARDED, STATUS_REST);
     }
 
+    //清除实体信息或格式化状态信息
     public void disconnectWithEntity(Entity.RemovalReason reason, ResourceLocation status) {
-        if (entity != null) {
+        if (entity != null && reason != null) {
             if (EventHooks.allowDataMerge(reason, entity, this)) mergeDataFromEntity(entity);
             //TODO 清除实体数据绑定
             if (reason != Entity.RemovalReason.KILLED) entity.remove(reason);
-            identifier.type.onRetreat(player, this);
+            identifier.type.onRetreat(opeHandler.owner(), this);
             EventHooks.onRetreat(this, reason);
             entity = null;
         }
@@ -207,43 +206,62 @@ public class Operator {
         this.status = status;
     }
 
+    public void checkSelf() {
+        if (status == STATUS_REST || status == STATUS_READY) {
+            disconnectWithEntity(Entity.RemovalReason.DISCARDED, status);
+        } else if (status == STATUS_TRACKING) {
+            if (entityFinderInfo.isEmpty() || (opeHandler.owner().left().isPresent() && !checkEntityLegality(entity)))
+                disconnectWithEntity();
+        } else if (status == STATUS_WORKING || status == STATUS_ALERT) {
+            if (entityFinderInfo.isEmpty()) disconnectWithEntity();
+            entity = null;
+        } else if (status == STATUS_DISPATCHING) {
+            disconnectWithEntity(Entity.RemovalReason.DISCARDED, STATUS_DISPATCHING);
+        }
+    }
+
     // ---[部署与撤退]---
 
     @SuppressWarnings("all")
-    public boolean deploy(boolean focus) {//TODO
-        if ((entity != null || status == STATUS_REST) && !focus) return false;
+    public boolean deploy(boolean focus, boolean markWhenNoPlayer) {//TODO
+        if (((entity != null || status != STATUS_READY) && !focus) || opeHandler.owner().left().isEmpty()) return false;
 
-        //simulate deploy in opeHandler
-        //ask type is allowed
-        //post event
+        if (identifier.type.allowDeploy(opeHandler.owner().left().get(), this) &&
+                opeHandler.addDeploying(this, true)) {
 
-        boolean flag = true;
-        if (status != STATUS_READY)
-            flag = retreat(focus, null, false);
+            boolean flag = true;
 
-        if (!flag) return false;
+            //find deploy pos
+            //post event
 
-        //执行部署行为
-        //deploy in opeHandler
-        //post event
+            flag = flag && retreat(true, null, false);
+
+            if (!flag) return false;
+
+            //执行部署行为
+            //deploy in opeHandler
+            //post event
 
 //        lastPos = //标记新的部署位置
-        status = STATUS_TRACKING;
+            status = STATUS_TRACKING;
 //        entity =
 //        deployID =
-        return true;
+            return true;
+        }
+        return false;
     }
 
     /**
-     * 使该干员撤退
+     * 使该干员撤退 不包含自然撤退情况 不要在客户端调用这个
      *
      * @param focus       是否强制撤退
      * @param otherEntity 选配，目标实体。一般给工作或巡逻状态干员用的。
      * @param safeMode    若开启，则对于不需要执行操作的分支也会进行操作以保证数据存储的正确性
      * @return true -> 成功撤退  false -> 不允许撤退
      */
+    @SuppressWarnings("deprecation")
     public boolean retreat(boolean focus, OperatorEntity otherEntity, boolean safeMode) {
-        if (!(player instanceof ServerPlayer)) return false;
+        if (!focus && opeHandler.owner().left().isEmpty()) return false;
 
         if (checkEntityLegality(otherEntity)) this.entity = otherEntity;
 
@@ -254,20 +272,28 @@ public class Operator {
         }
 
 
-        Optional<ResourceLocation> state = identifier.type.allowDeploy(player, this) ? EventHooks.allowOperatorRetreat((ServerPlayer) player, this, otherEntity) : Optional.empty();
+        Optional<ResourceLocation> state = identifier.type.allowRetreat(entity, opeHandler.owner(), this) ? EventHooks.allowOperatorRetreat(opeHandler.owner().left().get(), this, otherEntity) : Optional.empty();
         if (state.isPresent()) {
             disconnectWithEntity(Entity.RemovalReason.UNLOADED_WITH_PLAYER, state.get());
-            opeHandler.
+            opeHandler.onRetreat(this);
             return true;
         }
 
         if (focus) {
             disconnectWithEntity(Entity.RemovalReason.DISCARDED, STATUS_REST);
-            opeHandler.
+            opeHandler.onRetreat(this);
             return true;
         }
         return false;
     }
+
+    //当干员死亡 不处理死亡行为本身
+    @SuppressWarnings("deprecation")
+    public void onOperatorDead(OperatorEntity entity) {
+        disconnectWithEntity(Entity.RemovalReason.KILLED, STATUS_REST);
+        opeHandler.onRetreat(this);
+    }
+
 
     public record Identifier(OperatorType type, Optional<UUID> uuid) {
         public static final Codec<Identifier> CODEC = RecordCodecBuilder.create(n -> n.group(

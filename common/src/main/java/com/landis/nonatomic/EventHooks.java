@@ -2,12 +2,15 @@ package com.landis.nonatomic;
 
 import com.landis.nonatomic.core.Operator;
 import com.landis.nonatomic.core.OperatorEntity;
+import com.mojang.datafixers.util.Either;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
+import java.util.UUID;
 
 //TODO
 public class EventHooks {
@@ -25,7 +28,7 @@ public class EventHooks {
      *
      * @return 若为空表示不允许，否则为撤退后状态
      */
-    public static Optional<ResourceLocation> allowOperatorRetreat(ServerPlayer player, Operator operator, OperatorEntity entity) {//TODO
+    public static Optional<ResourceLocation> allowOperatorRetreat(Player player, Operator operator, OperatorEntity entity) {//TODO
         return operator.getStatus() == Operator.STATUS_DISPATCHING ? Optional.empty() :
                 Optional.of((operator.getStatus() == Operator.STATUS_WORKING || operator.getStatus() == Operator.STATUS_ALERT) ? Operator.STATUS_READY : Operator.STATUS_REST);
     }

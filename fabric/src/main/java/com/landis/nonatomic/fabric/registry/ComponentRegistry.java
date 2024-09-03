@@ -2,7 +2,6 @@ package com.landis.nonatomic.fabric.registry;
 
 import com.landis.nonatomic.Nonatomic;
 import com.landis.nonatomic.core.player_opehandler.PlayerOpeHandlerNoRepetition;
-import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import dev.onyxstudios.cca.api.v3.component.ComponentKey;
 import dev.onyxstudios.cca.api.v3.component.ComponentRegistryV3;
@@ -29,7 +28,7 @@ public class ComponentRegistry implements EntityComponentInitializer {
 
     public static class OpeHandler extends Component<PlayerOpeHandlerNoRepetition>{
         public OpeHandler(LivingEntity entity) {
-            super(entity, PlayerOpeHandlerNoRepetition::new, PlayerOpeHandlerNoRepetition.CODEC);
+            super(entity, ()-> new PlayerOpeHandlerNoRepetition(4,true), PlayerOpeHandlerNoRepetition.CODEC);
         }
     }
 
