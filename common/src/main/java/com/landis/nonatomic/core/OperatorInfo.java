@@ -18,7 +18,9 @@ public abstract class OperatorInfo {
      *
      * @param newData 实体保有的数据，用于和此数据合并
      */
-    public abstract void merge(final OperatorInfo newData);
+    public abstract <T extends OperatorInfo> void merge(final T newData);
+
+    public abstract <T extends OperatorInfo> T createNew();
 
     public void init(Operator operator) {
         this.operator = operator;

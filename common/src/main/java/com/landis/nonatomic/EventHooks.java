@@ -37,7 +37,7 @@ public class EventHooks {
 
     }
 
-    public static boolean allowDataMerge(Entity.RemovalReason reason, OperatorEntity entity, Operator operator){
+    public static boolean allowDataMerge(Entity.RemovalReason reason, OperatorEntity entity, Operator operator, boolean initiativeRequest){
         return true;//TODO
     }
 }

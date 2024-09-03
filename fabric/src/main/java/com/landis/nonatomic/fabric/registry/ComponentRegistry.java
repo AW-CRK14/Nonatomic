@@ -7,46 +7,41 @@ import dev.onyxstudios.cca.api.v3.component.ComponentKey;
 import dev.onyxstudios.cca.api.v3.component.ComponentRegistryV3;
 import dev.onyxstudios.cca.api.v3.component.ComponentV3;
 import dev.onyxstudios.cca.api.v3.component.sync.AutoSyncedComponent;
-import dev.onyxstudios.cca.api.v3.entity.EntityComponentFactoryRegistry;
-import dev.onyxstudios.cca.api.v3.entity.EntityComponentInitializer;
-import dev.onyxstudios.cca.api.v3.entity.RespawnCopyStrategy;
+import dev.onyxstudios.cca.api.v3.world.WorldComponentFactoryRegistry;
+import dev.onyxstudios.cca.api.v3.world.WorldComponentInitializer;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
 
 import java.util.function.Supplier;
 
-public class ComponentRegistry implements EntityComponentInitializer {
+public class ComponentRegistry implements WorldComponentInitializer {
     @Override
-    public void registerEntityComponentFactories(EntityComponentFactoryRegistry registry) {
-        registry.registerForPlayers(OPE_HANDLER, OpeHandler::new, RespawnCopyStrategy.CHARACTER);
+    public void registerWorldComponentFactories(WorldComponentFactoryRegistry registry) {
+        registry.register(OPE_HANDLER, level -> new OpeHandler());
     }
 
     public static final ComponentKey<OpeHandler> OPE_HANDLER = ComponentRegistryV3.INSTANCE.getOrCreate(new ResourceLocation(Nonatomic.MOD_ID, "ope_holder"), OpeHandler.class);
 
 
-    public static class OpeHandler extends Component<PlayerOpeHandlerNoRepetition>{
-        public OpeHandler(LivingEntity entity) {
-            super(entity, ()-> new PlayerOpeHandlerNoRepetition(4,true), PlayerOpeHandlerNoRepetition.CODEC);
+
+    public static class OpeHandler extends Component<PlayerOpeHandlerNoRepetition.LevelContainer>{
+        public OpeHandler() {
+            super(()-> new PlayerOpeHandlerNoRepetition.LevelContainer(4,true), PlayerOpeHandlerNoRepetition.LevelContainer.CODEC);
         }
     }
 
     public static class Component<T> implements ComponentV3, AutoSyncedComponent {
-        public LivingEntity getEntity() {
-            return entity;
-        }
 
         public T getData() {
             return data;
         }
 
-        private final LivingEntity entity;
         private final Codec<T> codec;
         private T data;
 
-        public Component(LivingEntity entity, Supplier<T> instanceCreator, Codec<T> codec) {
-            this.entity = entity;
+        public Component(Supplier<T> instanceCreator, Codec<T> codec) {
             this.data = instanceCreator.get();
             this.codec = codec;
         }
@@ -61,6 +56,18 @@ public class ComponentRegistry implements EntityComponentInitializer {
         @Override
         public void writeToNbt(CompoundTag tag) {
             codec.encode(data, NbtOps.INSTANCE, tag);
+        }
+    }
+
+    public record ComponentAgency<T>(T target) implements ComponentV3, AutoSyncedComponent {
+        @Override
+        public void readFromNbt(CompoundTag tag) {
+
+        }
+
+        @Override
+        public void writeToNbt(CompoundTag tag) {
+
         }
     }
 

@@ -67,6 +67,10 @@ public class Operator {
         return opeHandler;
     }
 
+    public OperatorType getType(){
+        return identifier.type();
+    }
+
     public void refreshLastPos(LevelAndPosRecorder recorder) {
         entityFinderInfo.ifPresent(info -> info.posRecorder = recorder);
     }
@@ -167,16 +171,15 @@ public class Operator {
         return true;
     }
 
+    //生物实体的数据同步 对于干员实体，也使用这个给自己同步即可
     private void initEntity(OperatorEntity entity) {
         this.entity = entity;
         //TODO 同步数据
     }
 
-    public void noTrackingOpeUninstall(OperatorEntity entity) {
+    public void requestMerge(OperatorEntity entity) {
         if (checkEntityLegality(entity)) {
-            if (EventHooks.allowDataMerge(Entity.RemovalReason.UNLOADED_TO_CHUNK, entity, this))
-                mergeDataFromEntity(entity);
-            refreshLastPos(new LevelAndPosRecorder(entity));
+            mergeDataFromEntity(entity);
         }
     }
 
@@ -194,7 +197,7 @@ public class Operator {
     //清除实体信息或格式化状态信息
     public void disconnectWithEntity(Entity.RemovalReason reason, ResourceLocation status) {
         if (entity != null && reason != null) {
-            if (EventHooks.allowDataMerge(reason, entity, this)) mergeDataFromEntity(entity);
+            if (EventHooks.allowDataMerge(reason, entity, this, false)) mergeDataFromEntity(entity);
             //TODO 清除实体数据绑定
             if (reason != Entity.RemovalReason.KILLED) entity.remove(reason);
             identifier.type.onRetreat(opeHandler.owner(), this);

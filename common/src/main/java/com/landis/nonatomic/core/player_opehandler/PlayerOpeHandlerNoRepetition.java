@@ -4,13 +4,16 @@ import com.landis.nonatomic.Helper;
 import com.landis.nonatomic.Registries;
 import com.landis.nonatomic.core.OpeHandler;
 import com.landis.nonatomic.core.Operator;
+import com.landis.nonatomic.core.OperatorEntity;
 import com.landis.nonatomic.core.OperatorType;
 import com.landis.nonatomic.registry.OperatorTypeRegistry;
 import com.mojang.datafixers.util.Either;
+import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.system.NonnullDefault;
 
@@ -20,7 +23,7 @@ public class PlayerOpeHandlerNoRepetition implements OpeHandler {
     public static final Codec<PlayerOpeHandlerNoRepetition> CODEC = RecordCodecBuilder.create(a -> a.group(
             Registries.getOperatorTypeRegistry().byNameCodec().listOf().fieldOf("deploying").forGetter(i -> i.deploying),
             Registries.getOperatorTypeRegistry().byNameCodec().listOf().fieldOf("history").forGetter(i -> i.lastDeployingList),
-            Operator.CODEC.listOf().xmap(list -> Helper.listElementAsValue(list, o -> o.identifier.type()), map -> map.values().stream().toList()).fieldOf("operators").forGetter(i -> i.operators),
+            Helper.mapLikeWithKeyProvider(Operator.CODEC,Operator::getType).fieldOf("operators").forGetter(i -> i.operators),
             Codec.INT.fieldOf("max_deploying").forGetter(i -> i.maxDeployingListSize),
             Codec.BOOL.fieldOf("max_deploying").forGetter(i -> i.allowPlacePlaceholder),
             UUIDUtil.CODEC.fieldOf("uuid").forGetter(i -> i.uuid)
@@ -47,11 +50,24 @@ public class PlayerOpeHandlerNoRepetition implements OpeHandler {
         this.lastDeployingList.addAll(lastDeployingList);
         this.operators.putAll(operators);
         this.uuid = playerUUID;
+
+        init();
     }
 
     public PlayerOpeHandlerNoRepetition(int maxDeployingListSize, boolean allowPlacePlaceholder) {
         this.maxDeployingListSize = maxDeployingListSize;
         this.allowPlacePlaceholder = allowPlacePlaceholder;
+
+        init();
+    }
+
+    public PlayerOpeHandlerNoRepetition(int maxDeployingListSize, boolean allowPlacePlaceholder, ServerPlayer player) {
+        this.maxDeployingListSize = maxDeployingListSize;
+        this.allowPlacePlaceholder = allowPlacePlaceholder;
+
+        init();
+
+        login(player);
     }
 
 
@@ -76,9 +92,13 @@ public class PlayerOpeHandlerNoRepetition implements OpeHandler {
 
     @Override
     public void login(ServerPlayer owner) {
-        this.owner = owner;
         if (uuid == null) {
+            this.owner = owner;
             uuid = owner.getUUID();
+        } else if (!owner.getUUID().equals(uuid)) {
+            throw new IllegalArgumentException("The UUID is not the same as the owner UUID");
+        } else {
+            this.owner = owner;
         }
         this.operators.values().forEach(o -> o.login(owner));
 
@@ -214,5 +234,42 @@ public class PlayerOpeHandlerNoRepetition implements OpeHandler {
     public void markDeployingChanged() {
         this.lastDeployingList.clear();
         this.lastDeployingList.addAll(this.deploying);
+    }
+
+    public static class LevelContainer {
+        public static final Codec<LevelContainer> CODEC = RecordCodecBuilder.create(n -> n.group(
+                Helper.mapLikeCodec(UUIDUtil.CODEC,PlayerOpeHandlerNoRepetition.CODEC).fieldOf("data").forGetter(i -> i.data),
+                Codec.INT.fieldOf("max_deploying").forGetter(i -> i.maxDeploying),
+                Codec.BOOL.fieldOf("allow_place_placeholder").forGetter(i -> i.allowPlacePlaceholder)
+        ).apply(n,LevelContainer::new));
+
+        private final Map<UUID, PlayerOpeHandlerNoRepetition> data;
+        public final int maxDeploying;
+        public final boolean allowPlacePlaceholder;
+
+        protected LevelContainer(Map<UUID, PlayerOpeHandlerNoRepetition> data, int maxDeploying, boolean allowPlacePlaceholder) {
+            this.data = data;
+            this.maxDeploying = maxDeploying;
+            this.allowPlacePlaceholder = allowPlacePlaceholder;
+        }
+
+        public LevelContainer(int maxDeploying, boolean allowPlacePlaceholder) {
+            this.data = new HashMap<>();
+            this.maxDeploying = maxDeploying;
+            this.allowPlacePlaceholder = allowPlacePlaceholder;
+        }
+
+
+        public PlayerOpeHandlerNoRepetition getDataFor(ServerPlayer player) {
+            return data.computeIfAbsent(player.getUUID(), uuid -> new PlayerOpeHandlerNoRepetition(maxDeploying, allowPlacePlaceholder, player));
+        }
+
+        public PlayerOpeHandlerNoRepetition getDataFor(UUID player) {
+            return data.get(player);
+        }
+
+        public void initOperatorEntityLoading(OperatorEntity entity){
+            //TODO
+        }
     }
 }
