@@ -9,6 +9,7 @@ import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
 
 public class RegistriesImpl {
+    public static void bootstrap(){}
 
     public static final MappedRegistry<Codec<? extends OperatorInfo>> OPERATOR_INFO = FabricRegistryBuilder.createSimple(Registries.Keys.OPERATOR_INFO).buildAndRegister();
     public static final MappedRegistry<OperatorType> OPERATOR_TYPE = FabricRegistryBuilder.createSimple(Registries.Keys.OPERATOR_TYPE).buildAndRegister();

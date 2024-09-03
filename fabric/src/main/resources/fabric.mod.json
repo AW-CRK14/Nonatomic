@@ -20,6 +20,9 @@
     ],
     "client": [
       "com.landis.nonatomic.fabric.client.ClientInit"
+    ],
+    "cardinal-components-world": [
+      "com.landis.nonatomic.fabric.registry.ComponentRegistry"
     ]
   },
   "mixins": [

@@ -1,7 +1,7 @@
 package com.landis.nonatomic.fabric.registry;
 
 import com.landis.nonatomic.Nonatomic;
-import com.landis.nonatomic.core.player_opehandler.PlayerOpeHandlerNoRepetition;
+import com.landis.nonatomic.core.player_opehandler.OpeHandlerNoRepetition;
 import com.mojang.serialization.Codec;
 import dev.onyxstudios.cca.api.v3.component.ComponentKey;
 import dev.onyxstudios.cca.api.v3.component.ComponentRegistryV3;
@@ -12,7 +12,6 @@ import dev.onyxstudios.cca.api.v3.world.WorldComponentInitializer;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.Level;
 
 import java.util.function.Supplier;
 
@@ -26,9 +25,9 @@ public class ComponentRegistry implements WorldComponentInitializer {
 
 
 
-    public static class OpeHandler extends Component<PlayerOpeHandlerNoRepetition.LevelContainer>{
+    public static class OpeHandler extends Component<OpeHandlerNoRepetition.LevelContainer>{
         public OpeHandler() {
-            super(()-> new PlayerOpeHandlerNoRepetition.LevelContainer(4,true), PlayerOpeHandlerNoRepetition.LevelContainer.CODEC);
+            super(()-> new OpeHandlerNoRepetition.LevelContainer(4,true), OpeHandlerNoRepetition.LevelContainer.CODEC);
         }
     }
 
