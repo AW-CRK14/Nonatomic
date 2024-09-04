@@ -23,7 +23,7 @@ public class OpeHandlerNoRepetition implements OpeHandler {
             Registries.getOperatorTypeRegistry().byNameCodec().listOf().fieldOf("history").forGetter(i -> i.lastDeployingList),
             Helper.mapLikeWithKeyProvider(Operator.CODEC,Operator::getType).fieldOf("operators").forGetter(i -> i.operators),
             Codec.INT.fieldOf("max_deploying").forGetter(i -> i.maxDeployingListSize),
-            Codec.BOOL.fieldOf("max_deploying").forGetter(i -> i.allowPlacePlaceholder),
+            Codec.BOOL.fieldOf("allow_place_placeholder").forGetter(i -> i.allowPlacePlaceholder),
             UUIDUtil.CODEC.fieldOf("uuid").forGetter(i -> i.uuid)
     ).apply(a, OpeHandlerNoRepetition::new));
 
@@ -236,7 +236,7 @@ public class OpeHandlerNoRepetition implements OpeHandler {
 
     public static class LevelContainer {
         public static final Codec<LevelContainer> CODEC = RecordCodecBuilder.create(n -> n.group(
-                Helper.mapLikeCodec(UUIDUtil.CODEC, OpeHandlerNoRepetition.CODEC).fieldOf("data").forGetter(i -> i.data),
+                Helper.mapLikeWithKeyProvider(OpeHandlerNoRepetition.CODEC,h -> h.uuid).fieldOf("data").forGetter(i -> i.data),
                 Codec.INT.fieldOf("max_deploying").forGetter(i -> i.maxDeploying),
                 Codec.BOOL.fieldOf("allow_place_placeholder").forGetter(i -> i.allowPlacePlaceholder)
         ).apply(n,LevelContainer::new));

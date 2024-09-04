@@ -25,6 +25,11 @@
       "com.landis.nonatomic.fabric.registry.ComponentRegistry"
     ]
   },
+  "custom": {
+    "cardinal-components": [
+      "nonatomic:ope_handler"
+    ]
+  },
   "mixins": [
     "nonatomic.mixins.json"
   ],
