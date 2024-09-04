@@ -3,6 +3,7 @@ package com.landis.nonatomic.core;
 import com.landis.nonatomic.EventHooks;
 import com.landis.nonatomic.Nonatomic;
 import com.landis.nonatomic.Registries;
+import com.landis.nonatomic.core.info.IAttributesProvider;
 import com.landis.nonatomic.misc.LevelAndPosRecorder;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -11,6 +12,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.player.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -67,7 +70,7 @@ public class Operator {
         return opeHandler;
     }
 
-    public OperatorType getType(){
+    public OperatorType getType() {
         return identifier.type();
     }
 
@@ -106,8 +109,8 @@ public class Operator {
             switch (loginActionFlag) {
                 case 0 -> disconnectWithEntity();
                 case 1 -> deploy(false, false);
-                case 2 ->
-                        findEntity(serverPlayer.getServer()).ifPresentOrElse(this::initEntity, this::disconnectWithEntity);
+//                case 2 ->
+//                        findEntity(serverPlayer.getServer()).ifPresentOrElse(this::initTrackingEntity, this::disconnectWithEntity);
             }
         }
 
@@ -172,9 +175,18 @@ public class Operator {
     }
 
     //生物实体的数据同步 对于干员实体，也使用这个给自己同步即可
-    private void initEntity(OperatorEntity entity) {
-        this.entity = entity;
-        //TODO 同步数据
+    //原则上不缓存attribute变更
+    public void entityCreated(OperatorEntity entity, boolean isNew){
+        if(checkEntityLegality(entity)){
+            //TODO 干员引用数据
+            if(status == STATUS_TRACKING) this.entity = entity;
+            if(isNew){
+                this.entityFinderInfo = Optional.of(new EntityFinderInfo(entity.getUUID(), new LevelAndPosRecorder(entity)));
+                infos.values().forEach(info -> {
+                    if(info instanceof IAttributesProvider p) p.getAttributes().forEach(re -> re.attach(entity));
+                });
+            }
+        }
     }
 
     public void requestMerge(OperatorEntity entity) {
@@ -295,6 +307,15 @@ public class Operator {
     public void onOperatorDead(OperatorEntity entity) {
         disconnectWithEntity(Entity.RemovalReason.KILLED, STATUS_REST);
         opeHandler.onRetreat(this);
+    }
+
+    // ---[属性附加处理器]---
+
+    public void modifyAttribute(boolean remove, IAttributesProvider.MarkedModifier modifier) {//TODO
+        if(entity != null){
+            if (remove) modifier.remove(entity);
+            else modifier.attach(entity);
+        }
     }
 
 

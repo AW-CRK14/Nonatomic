@@ -1,6 +1,5 @@
 package com.landis.nonatomic.fabric;
 
-import dev.onyxstudios.cca.api.v3.world.WorldComponentFactoryRegistry;
 import net.fabricmc.api.ModInitializer;
 
 public final class Nonatomic implements ModInitializer {

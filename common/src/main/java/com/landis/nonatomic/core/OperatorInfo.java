@@ -1,12 +1,22 @@
 package com.landis.nonatomic.core;
 
 import com.landis.nonatomic.Registries;
+import com.landis.nonatomic.core.info.IAttributesProvider;
+import com.landis.nonatomic.core.info.IBelongingOperatorProvider;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.system.NonnullDefault;
 
-public abstract class OperatorInfo {
+import java.util.*;
+
+public abstract class OperatorInfo implements IBelongingOperatorProvider {
     public static final Codec<OperatorInfo> CODEC = Registries.getOperatorInfoRegistry().byNameCodec().dispatch(OperatorInfo::codec, i -> i);
 
+
+    //empty -> 该数据为外部数据  否则为干员持久化数据
     @NonnullDefault
     public Operator operator;
 
@@ -20,10 +30,15 @@ public abstract class OperatorInfo {
      */
     public abstract <T extends OperatorInfo> void merge(final T newData);
 
-    public abstract <T extends OperatorInfo> T createNew();
+    protected abstract <T extends OperatorInfo> T createExternal();
+
 
     public void init(Operator operator) {
         this.operator = operator;
+    }
+
+    public Operator getBelonging(){
+        return operator;
     }
 
 
