@@ -10,5 +10,7 @@ public final class Nonatomic implements ModInitializer {
 
         // Run our common setup.
         com.landis.nonatomic.Nonatomic.init();
+
+        com.landis.nonatomic.Nonatomic.registryInit();
     }
 }

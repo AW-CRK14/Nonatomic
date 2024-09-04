@@ -11,9 +11,6 @@ public final class Nonatomic {
 
     public static void init() {
 
-        OperatorTypeRegistry.REGISTER.register();
-        OperatorInfoRegistry.REGISTER.register();
-
         // Write common init code here.
         PlayerEvent.PLAYER_JOIN.register(serverPlayer -> {
             OperatorType type = Registries.getOperatorTypeRegistry().get(OperatorTypeRegistry.PLACE_HOLDER.getId());
@@ -22,5 +19,10 @@ public final class Nonatomic {
             System.out.println("event handled");
         });
 
+    }
+
+    public static void registryInit() {
+        OperatorTypeRegistry.REGISTER.register();
+        OperatorInfoRegistry.REGISTER.register();
     }
 }

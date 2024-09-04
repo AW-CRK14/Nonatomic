@@ -11,6 +11,7 @@ public final class Nonatomic {
         DataAttachmentRegistry.REGISTER.register(bus);
 
 
+
         // Run our common setup.
         com.landis.nonatomic.Nonatomic.init();
     }
