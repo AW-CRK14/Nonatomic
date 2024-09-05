@@ -2,25 +2,20 @@ package com.landis.nonatomic;
 
 import com.landis.nonatomic.core.Operator;
 import com.landis.nonatomic.core.OperatorEntity;
-import com.mojang.datafixers.util.Either;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
-import java.util.UUID;
 
 //TODO
 public class EventHooks {
     /**
-     * 是否允许干员保持为部署状态
-     *
-     * @return 分位2决定是(1)否标记再部署 分位1决定是(1)否存在
+     * 是否允许干员在玩家登录时重新部署
      */
-    public static int allowOperatorStayDeploying(ServerPlayer player, Operator operator, OperatorEntity entity) {//TODO
-        return (player.getServer().isSingleplayer() || operator.getStatus() != Operator.STATUS_TRACKING) ? 0b01 : 0b10;
+    public static boolean allowOperatorRedeployWhenLogin(ServerPlayer player, Operator operator, OperatorEntity entity) {//TODO
+        return true;
     }
 
     /**
@@ -37,7 +32,7 @@ public class EventHooks {
 
     }
 
-    public static boolean allowDataMerge(Entity.RemovalReason reason, OperatorEntity entity, Operator operator, boolean initiativeRequest){
+    public static boolean allowDataMerge(boolean followingLogout, OperatorEntity entity, Operator operator) {
         return true;//TODO
     }
 }

@@ -12,9 +12,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.LivingEntity;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,7 +24,7 @@ public class Operator {
             Identifier.CODEC.fieldOf("identifier").forGetter(i -> i.identifier),
             OperatorInfo.CODEC.listOf().fieldOf("infos").forGetter(i -> i.infos.values().stream().toList()),
             EntityFinderInfo.CODEC.optionalFieldOf("finder").forGetter(i -> i.entityFinderInfo),
-            Codec.INT.fieldOf("login_action").forGetter(i -> i.loginActionFlag)
+            Codec.BOOL.fieldOf("redeploy").forGetter(i -> i.redeployFlag)
     ).apply(n, Operator::new));
 
     public static final ResourceLocation STATUS_READY = new ResourceLocation(Nonatomic.MOD_ID, "ready");//空闲状态
@@ -46,7 +44,7 @@ public class Operator {
     @Nullable
     private OperatorEntity entity;
     private @SuppressWarnings("all") Optional<EntityFinderInfo> entityFinderInfo;
-    private int loginActionFlag = 0;
+    private boolean redeployFlag = false;
 
     private ResourceLocation status;
 
@@ -89,10 +87,10 @@ public class Operator {
     }
 
     @SuppressWarnings("all")
-    public Operator(Identifier identifier, List<? extends OperatorInfo> infos, Optional<EntityFinderInfo> entityFinderInfo, int loginActionFlag) {
+    public Operator(Identifier identifier, List<? extends OperatorInfo> infos, Optional<EntityFinderInfo> entityFinderInfo, boolean redeployFlag) {
         this.identifier = identifier;
         this.entityFinderInfo = entityFinderInfo;
-        this.loginActionFlag = loginActionFlag;
+        this.redeployFlag = redeployFlag;
         for (OperatorInfo info : infos) {
             this.infos.put(info.codec(), info);
         }
@@ -104,42 +102,20 @@ public class Operator {
         infos.values().forEach(info -> info.init(this));
     }
 
-    public void login(Player player) {
-        if (player instanceof ServerPlayer serverPlayer) {
-            switch (loginActionFlag) {
-                case 0 -> disconnectWithEntity();
-                case 1 -> deploy(false, false);
-//                case 2 ->
-//                        findEntity(serverPlayer.getServer()).ifPresentOrElse(this::initTrackingEntity, this::disconnectWithEntity);
-            }
-        }
+    public void login(ServerPlayer player) {
+        if (redeployFlag) deploy(false, false);
 
         infos.values().forEach(OperatorInfo::login);
     }
 
     public void logout() {
         if (status == STATUS_TRACKING) {
-            if (entity == null)
-                disconnectWithEntity();
-            int value = EventHooks.allowOperatorStayDeploying(opeHandler.owner().left().get(), this, entity);
-            switch (value & 0b11) {
-                case 0b11, 0b01 -> {//保持存在
-                    if (entityFinderInfo.isPresent()) {
-                        entityFinderInfo.get().posRecorder = new LevelAndPosRecorder(entity);
-                        loginActionFlag = 2;
-                    } else {
-                        if (checkEntityLegality(entity)) {
-                            this.entityFinderInfo = Optional.of(new EntityFinderInfo(entity.getUUID(), new LevelAndPosRecorder(entity)));
-                            loginActionFlag = 2;
-                        } else disconnectWithEntity();
-                    }
-                }
-                case 0b00 -> //不存在也不进行再部署
-                        retreat(true, null, true);
-                case 0b10 -> {//不存在但进行再部署
-                    retreat(true, null, false);
-                    loginActionFlag = 1;
-                }
+            if (entity == null) disconnectWithEntity();
+            else {
+                if (EventHooks.allowOperatorRedeployWhenLogin(opeHandler.owner().left().get(), this, entity))
+                    this.redeployFlag = true;
+                mergeDataFromEntity(entity, true);
+                disconnectWithEntity(Entity.RemovalReason.UNLOADED_WITH_PLAYER, STATUS_TRACKING);
             }
         }
         infos.values().forEach(OperatorInfo::logout);
@@ -148,8 +124,7 @@ public class Operator {
 
     // ---[实体处理部分]---
 
-
-    public OperatorEntity getEntityTrackingOnly() {
+    public OperatorEntity tryFindEntity() {
         if (entity != null || opeHandler.owner().left().isEmpty()) return entity;
         Optional<OperatorEntity> e = findEntity(opeHandler.owner().left().get().getServer());
         if (status == STATUS_TRACKING && e.isPresent()) {
@@ -176,14 +151,14 @@ public class Operator {
 
     //生物实体的数据同步 对于干员实体，也使用这个给自己同步即可
     //原则上不缓存attribute变更
-    public void entityCreated(OperatorEntity entity, boolean isNew){
-        if(checkEntityLegality(entity)){
+    public void entityCreated(OperatorEntity entity, boolean isNew) {
+        if (checkEntityLegality(entity)) {
             //TODO 干员引用数据
-            if(status == STATUS_TRACKING) this.entity = entity;
-            if(isNew){
+            if (status == STATUS_TRACKING) this.entity = entity;
+            if (isNew) {
                 this.entityFinderInfo = Optional.of(new EntityFinderInfo(entity.getUUID(), new LevelAndPosRecorder(entity)));
                 infos.values().forEach(info -> {
-                    if(info instanceof IAttributesProvider p) p.getAttributes().forEach(re -> re.attach(entity));
+                    if (info instanceof IAttributesProvider p) p.getAttributes().forEach(re -> re.attach(entity));
                 });
             }
         }
@@ -191,14 +166,17 @@ public class Operator {
 
     public void requestMerge(OperatorEntity entity) {
         if (checkEntityLegality(entity)) {
-            mergeDataFromEntity(entity);
+            mergeDataFromEntity(entity, false);
         }
     }
 
     //合并实体信息
-    private void mergeDataFromEntity(@Nullable OperatorEntity entity) {
+    private void mergeDataFromEntity(@Nullable OperatorEntity entity, boolean followingLogout) {
         if (entity == null) entity = this.entity;
-        //TODO 进行实体数据合并
+        if (entity == null) return;
+        if (EventHooks.allowDataMerge(followingLogout, entity, this)) {
+            //TODO 进行实体数据合并
+        }
     }
 
 
@@ -209,7 +187,7 @@ public class Operator {
     //清除实体信息或格式化状态信息
     public void disconnectWithEntity(Entity.RemovalReason reason, ResourceLocation status) {
         if (entity != null && reason != null) {
-            if (EventHooks.allowDataMerge(reason, entity, this, false)) mergeDataFromEntity(entity);
+            mergeDataFromEntity(entity, false);
             //TODO 清除实体数据绑定
             if (reason != Entity.RemovalReason.KILLED) entity.remove(reason);
             identifier.type.onRetreat(opeHandler.owner(), this);
@@ -217,7 +195,7 @@ public class Operator {
             entity = null;
         }
         entityFinderInfo = Optional.empty();
-        loginActionFlag = -1;
+        redeployFlag = false;
         this.status = status;
     }
 
@@ -312,7 +290,7 @@ public class Operator {
     // ---[属性附加处理器]---
 
     public void modifyAttribute(boolean remove, IAttributesProvider.MarkedModifier modifier) {//TODO
-        if(entity != null){
+        if (entity != null) {
             if (remove) modifier.remove(entity);
             else modifier.attach(entity);
         }
@@ -345,6 +323,11 @@ public class Operator {
         public EntityFinderInfo(UUID entityUUID, @NotNull LevelAndPosRecorder posRecorder) {
             this.entityUUID = entityUUID;
             this.posRecorder = posRecorder;
+        }
+
+        public EntityFinderInfo(LivingEntity entity) {
+            this.entityUUID = entity.getUUID();
+            this.posRecorder = new LevelAndPosRecorder(entity);
         }
     }
 }
