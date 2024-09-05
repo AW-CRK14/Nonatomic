@@ -267,7 +267,18 @@ public class OpeHandlerNoRepetition implements OpeHandler {
         }
 
         public void initOperatorEntityLoading(OperatorEntity entity){
-            //TODO
+            initOperatorEntity(entity,false);
+        }
+
+        public void initOperatorEntityCreating(OperatorEntity entity){
+            initOperatorEntity(entity,true);
+        }
+
+        public void initOperatorEntity(OperatorEntity entity, boolean isNew){
+            if(entity.getIdentifier() != null && entity.getBelongingUUID() != null){
+                OpeHandlerNoRepetition handler = data.get(entity.getBelongingUUID());
+                if(handler != null) handler.findOperator(entity.getIdentifier()).ifPresent(ope -> ope.entityCreated(entity,isNew));
+            }
         }
     }
 }

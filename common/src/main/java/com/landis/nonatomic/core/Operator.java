@@ -136,36 +136,37 @@ public class Operator {
     //尝试寻找实体
     public Optional<OperatorEntity> findEntity(MinecraftServer server) {
         return entityFinderInfo.map(info -> server.getLevel(info.posRecorder.level()).getEntity(info.entityUUID))
-                .map(entity -> entity instanceof OperatorEntity operator && checkEntityLegality(operator) ? operator : null);
+                .map(entity -> entity instanceof OperatorEntity operator && checkEntityLegality(operator, false) ? operator : null);
     }
 
     //检查实体合法性
-    @SuppressWarnings("all") //TODO
-    public boolean checkEntityLegality(OperatorEntity entity) {
-        if (entity == null || entityFinderInfo.isEmpty() ||
-                entity.getUUID() != entityFinderInfo.get().entityUUID
-        ) return false;
-
-        return true;
+    @SuppressWarnings("all")
+    public boolean checkEntityLegality(OperatorEntity entity, boolean newCreated) {
+        return entity.getBelongingUUID() == opeHandler.owner().map(ServerPlayer::getUUID, p -> p) &&
+                entity.getIdentifier() == this.identifier &&
+                (newCreated || (this.entityFinderInfo.isPresent() && this.entityFinderInfo.get().match(entity)));
     }
 
     //生物实体的数据同步 对于干员实体，也使用这个给自己同步即可
     //原则上不缓存attribute变更
     public void entityCreated(OperatorEntity entity, boolean isNew) {
-        if (checkEntityLegality(entity)) {
-            //TODO 干员引用数据
+        if (checkEntityLegality(entity, isNew)) {
+            entity.setOperator(this);
             if (status == STATUS_TRACKING) this.entity = entity;
             if (isNew) {
                 this.entityFinderInfo = Optional.of(new EntityFinderInfo(entity.getUUID(), new LevelAndPosRecorder(entity)));
                 infos.values().forEach(info -> {
+                    info.entityCreated(entity);
                     if (info instanceof IAttributesProvider p) p.getAttributes().forEach(re -> re.attach(entity));
                 });
+            } else {
+                infos.values().forEach(info -> info.entityInit(entity));
             }
         }
     }
 
     public void requestMerge(OperatorEntity entity) {
-        if (checkEntityLegality(entity)) {
+        if (checkEntityLegality(entity, false)) {
             mergeDataFromEntity(entity, false);
         }
     }
@@ -203,7 +204,7 @@ public class Operator {
         if (status == STATUS_REST || status == STATUS_READY) {
             disconnectWithEntity(Entity.RemovalReason.DISCARDED, status);
         } else if (status == STATUS_TRACKING) {
-            if (entityFinderInfo.isEmpty() || (opeHandler.owner().left().isPresent() && !checkEntityLegality(entity)))
+            if (entityFinderInfo.isEmpty() || (opeHandler.owner().left().isPresent() && !checkEntityLegality(entity, false)))
                 disconnectWithEntity();
         } else if (status == STATUS_WORKING || status == STATUS_ALERT) {
             if (entityFinderInfo.isEmpty()) disconnectWithEntity();
@@ -256,7 +257,7 @@ public class Operator {
     public boolean retreat(boolean focus, OperatorEntity otherEntity, boolean safeMode) {
         if (!focus && opeHandler.owner().left().isEmpty()) return false;
 
-        if (checkEntityLegality(otherEntity)) this.entity = otherEntity;
+        if (checkEntityLegality(otherEntity, false)) this.entity = otherEntity;
 
         //为什么这会需要撤退呢
         if (status == STATUS_READY || status == STATUS_REST) {
@@ -328,6 +329,10 @@ public class Operator {
         public EntityFinderInfo(LivingEntity entity) {
             this.entityUUID = entity.getUUID();
             this.posRecorder = new LevelAndPosRecorder(entity);
+        }
+
+        public boolean match(OperatorEntity entity) {
+            return entity.getUUID() == this.entityUUID;
         }
     }
 }

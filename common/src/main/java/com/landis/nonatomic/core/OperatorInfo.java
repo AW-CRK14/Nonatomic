@@ -33,18 +33,29 @@ public abstract class OperatorInfo implements IBelongingOperatorProvider {
     protected abstract <T extends OperatorInfo> T createExternal();
 
 
+    public void login() {
+    }
+
     public void init(Operator operator) {
         this.operator = operator;
     }
+
+    public void logout() {
+    }
+
+    public void entityInit(OperatorEntity entity){
+    }
+
+    public void entityCreated(OperatorEntity entity){
+        entityInit(entity);
+    }
+
+
 
     public Operator getBelonging(){
         return operator;
     }
 
 
-    public void login() {
-    }
 
-    public void logout() {
-    }
 }

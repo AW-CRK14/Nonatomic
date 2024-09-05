@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface OpeHandler {
+
     Codec<? extends OpeHandler> codec();
 
     void init();
