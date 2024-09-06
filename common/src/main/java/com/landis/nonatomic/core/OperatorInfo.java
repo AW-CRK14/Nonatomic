@@ -24,14 +24,16 @@ public abstract class OperatorInfo implements IBelongingOperatorProvider {
     public abstract Codec<? extends OperatorInfo> codec();
 
     /**
-     * 标记数据合并 传入数据为不完全数据
+     * 标记数据合并。请注意完成合并后将传入信息进行清理。
      *
      * @param newData 实体保有的数据，用于和此数据合并
+     * @return 是否成功合并
      */
-    public abstract <T extends OperatorInfo> void merge(final T newData);
+    public abstract <T extends OperatorInfo> boolean merge(final T newData);
 
-    protected abstract <T extends OperatorInfo> T createExternal();
+    public abstract <T extends OperatorInfo> T createExternal();
 
+    public abstract <T extends OperatorInfo> T copy();
 
     public void login() {
     }
@@ -43,19 +45,17 @@ public abstract class OperatorInfo implements IBelongingOperatorProvider {
     public void logout() {
     }
 
-    public void entityInit(OperatorEntity entity){
+    public void entityInit(OperatorEntity entity) {
     }
 
-    public void entityCreated(OperatorEntity entity){
+    public void entityCreated(OperatorEntity entity) {
         entityInit(entity);
     }
 
 
-
-    public Operator getBelonging(){
+    public Operator getBelonging() {
         return operator;
     }
-
 
 
 }

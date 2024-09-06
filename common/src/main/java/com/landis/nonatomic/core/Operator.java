@@ -17,9 +17,18 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.function.Function;
 
+/**
+ * <p>干员</p>
+ * <p>在本库中，干员是玩家拥有的完整持久化单位的最小单位，在原则上不需要继承并创建子类。
+ * 干员负责存储一系列数据，包括标定本干员的特征信息等。</p>
+ * <p>在干员部署时，默认跟随状态下会存储干员实体，其它状态下只会标定干员的最后位置与实体uuid。
+ * 所有数据原则上不存储在所属玩家身上——而是应该存储在维度中，以便于实体创建时的同步和防止玩家数据量过大。</p>
+ * <p>在生物实体被创建时，会尝试与其对应的干员实例建立联系，验证合法性，引用数据与同步最后位置。</p>
+ */
 public class Operator {
-
+    //芝士Codec
     public static final Codec<Operator> CODEC = RecordCodecBuilder.create(n -> n.group(
             Identifier.CODEC.fieldOf("identifier").forGetter(i -> i.identifier),
             OperatorInfo.CODEC.listOf().fieldOf("infos").forGetter(i -> i.infos.values().stream().toList()),
@@ -27,6 +36,7 @@ public class Operator {
             Codec.BOOL.fieldOf("redeploy").forGetter(i -> i.redeployFlag)
     ).apply(n, Operator::new));
 
+    //预配的状态 默认只有STATUS_WORKING会保存实体
     public static final ResourceLocation STATUS_READY = new ResourceLocation(Nonatomic.MOD_ID, "ready");//空闲状态
     public static final ResourceLocation STATUS_REST = new ResourceLocation(Nonatomic.MOD_ID, "rest");//休息状态
     public static final ResourceLocation STATUS_TRACKING = new ResourceLocation(Nonatomic.MOD_ID, "tracking");//跟随状态
@@ -36,6 +46,14 @@ public class Operator {
 
     // ---[从这里开始]---
 
+    /**
+     * - {@link Operator#identifier}是干员实例特征的唯一标识符，必须包含干员种类以及一个选含的UUID，用于便于{@link OpeHandler 干员管理器}管理与记录。<p>
+     * - {@link Operator#infos}存储该干员附加的所有信息——全部以类似组件的形式存在。在干员实体中，只要通过了合法性验证，就可以直接访问干员从而访问数据。<p>
+     * - {@link Operator#opeHandler}就是我们上面提到过的干员管理器。干员所属的玩家与总部署状态表都可以通过该实例获取。在init方法中被加载。<p>
+     * - {@link Operator#entity}在需要记录实体的时候，这个变量将被对应的实体填充。在默认情况下，只有跟随状态干员会记录。
+     * 请不要随意记录其它状态的干员——除非您明白您在干什么——这可能导致干员在被世界移除后一直被持续引用。<p>
+     * - {@link Operator#entityFinderInfo}记录实体的uuid与最后位置，用于帮助玩家找到实体以及验证实体合法性。<p>
+     */
     public final Identifier identifier;
     public final HashMap<Codec<? extends OperatorInfo>, OperatorInfo> infos = new HashMap<>();
 
@@ -142,19 +160,20 @@ public class Operator {
     //检查实体合法性
     @SuppressWarnings("all")
     public boolean checkEntityLegality(OperatorEntity entity, boolean newCreated) {
-        return entity.getBelongingUUID() == opeHandler.owner().map(ServerPlayer::getUUID, p -> p) &&
+        return entity != null && entity.getBelongingUUID() == opeHandler.owner().map(ServerPlayer::getUUID, p -> p) &&
                 entity.getIdentifier() == this.identifier &&
                 (newCreated || (this.entityFinderInfo.isPresent() && this.entityFinderInfo.get().match(entity)));
     }
 
     //生物实体的数据同步 对于干员实体，也使用这个给自己同步即可
+    //记得创建生物实体前先给operator设status
     //原则上不缓存attribute变更
     public void entityCreated(OperatorEntity entity, boolean isNew) {
         if (checkEntityLegality(entity, isNew)) {
             entity.setOperator(this);
-            if (status == STATUS_TRACKING) this.entity = entity;
+            if (EventHooks.allowRecordEntity(this, entity, status)) this.entity = entity;
             if (isNew) {
-                this.entityFinderInfo = Optional.of(new EntityFinderInfo(entity.getUUID(), new LevelAndPosRecorder(entity)));
+                this.entityFinderInfo = Optional.of(new EntityFinderInfo(entity));
                 infos.values().forEach(info -> {
                     info.entityCreated(entity);
                     if (info instanceof IAttributesProvider p) p.getAttributes().forEach(re -> re.attach(entity));
@@ -165,19 +184,22 @@ public class Operator {
         }
     }
 
-    public void requestMerge(OperatorEntity entity) {
+    public void requestMerge(OperatorEntity entity, @Nullable Codec<? extends OperatorInfo>... types) {
         if (checkEntityLegality(entity, false)) {
-            mergeDataFromEntity(entity, false);
+            mergeDataFromEntity(entity, false, types);
         }
     }
 
     //合并实体信息
-    private void mergeDataFromEntity(@Nullable OperatorEntity entity, boolean followingLogout) {
+    @SafeVarargs
+    private void mergeDataFromEntity(@Nullable OperatorEntity entity, boolean followingLogout, @Nullable Codec<? extends OperatorInfo>... types) {
         if (entity == null) entity = this.entity;
         if (entity == null) return;
-        if (EventHooks.allowDataMerge(followingLogout, entity, this)) {
-            //TODO 进行实体数据合并
-        }
+        Function<Codec<? extends OperatorInfo>, Boolean> permission = EventHooks.allowDataMerge(followingLogout, entity, this, types).map(b -> codec -> b, c -> codec -> codec == c);
+        entity.requestExternalData().stream().filter(info -> permission.apply(info.codec())).forEach(i -> {
+            if (infos.containsKey(i.codec())) infos.get(i.codec()).merge(i);
+            else infos.put(i.codec(), i.copy());
+        });
     }
 
 
@@ -189,7 +211,6 @@ public class Operator {
     public void disconnectWithEntity(Entity.RemovalReason reason, ResourceLocation status) {
         if (entity != null && reason != null) {
             mergeDataFromEntity(entity, false);
-            //TODO 清除实体数据绑定
             if (reason != Entity.RemovalReason.KILLED) entity.remove(reason);
             identifier.type.onRetreat(opeHandler.owner(), this);
             EventHooks.onRetreat(this, reason);
@@ -290,7 +311,7 @@ public class Operator {
 
     // ---[属性附加处理器]---
 
-    public void modifyAttribute(boolean remove, IAttributesProvider.MarkedModifier modifier) {//TODO
+    public void modifyAttribute(boolean remove, IAttributesProvider.MarkedModifier modifier) {
         if (entity != null) {
             if (remove) modifier.remove(entity);
             else modifier.attach(entity);

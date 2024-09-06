@@ -1,6 +1,7 @@
 package com.landis.nonatomic.core;
 
 import com.landis.nonatomic.AttachedData;
+import com.mojang.serialization.Codec;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.server.level.ServerLevel;
@@ -8,8 +9,11 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.system.NonnullDefault;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.UUID;
 
 public abstract class OperatorEntity extends Mob {
@@ -66,4 +70,10 @@ public abstract class OperatorEntity extends Mob {
     }
 
     protected void opeInit(){}
+
+    /**可以覆写此方法，此方法在允许数据合并时被调用。
+     * */
+    protected Collection<? extends OperatorInfo> requestExternalData(){
+        return Collections.emptyList();
+    }
 }

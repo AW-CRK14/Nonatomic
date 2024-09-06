@@ -1,5 +1,6 @@
 package com.landis.nonatomic.core.player_opehandler;
 
+import com.landis.nonatomic.EventHooks;
 import com.landis.nonatomic.Helper;
 import com.landis.nonatomic.Registries;
 import com.landis.nonatomic.core.OpeHandler;
@@ -186,7 +187,7 @@ public class OpeHandlerNoRepetition implements OpeHandler {
 
         //遍历没在list里但是也被标记为部署的
         for (Operator operator : notDeploying) {
-            if (operator.getStatus() == Operator.STATUS_TRACKING) {
+            if (operator.getStatus() == Operator.STATUS_WORKING) {
                 operator.disconnectWithEntity();
                 flag = true;
                 if (redeployForListExcluded) operator.deploy(false, true);
@@ -221,7 +222,12 @@ public class OpeHandlerNoRepetition implements OpeHandler {
 
     @Override
     public void onRetreat(Operator operator) {
-
+        for (int i = 0; i < deploying.size(); i++) {
+            if (deploying.get(i) == operator.getType()){
+                deploying.set(i, OperatorTypeRegistry.PLACE_HOLDER.get());
+                return;
+            }
+        }
     }
 
     @Override
