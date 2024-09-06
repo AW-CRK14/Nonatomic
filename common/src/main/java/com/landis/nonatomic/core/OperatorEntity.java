@@ -5,6 +5,7 @@ import com.mojang.serialization.Codec;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
@@ -16,7 +17,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.UUID;
 
-public abstract class OperatorEntity extends Mob {
+public class OperatorEntity extends Mob {
+
     public UUID getBelongingUUID() {
         return belonging;
     }

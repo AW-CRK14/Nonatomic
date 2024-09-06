@@ -7,12 +7,16 @@ import com.landis.nonatomic.core.info.IAttributesProvider;
 import com.landis.nonatomic.misc.LevelAndPosRecorder;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,6 +32,7 @@ import java.util.function.Function;
  * <p>在生物实体被创建时，会尝试与其对应的干员实例建立联系，验证合法性，引用数据与同步最后位置。</p>
  */
 public class Operator {
+    Logger LOGGER = LogManager.getLogger("BreaNonatomic:Operator");
     //芝士Codec
     public static final Codec<Operator> CODEC = RecordCodecBuilder.create(n -> n.group(
             Identifier.CODEC.fieldOf("identifier").forGetter(i -> i.identifier),
@@ -121,7 +126,7 @@ public class Operator {
     }
 
     public void login(ServerPlayer player) {
-        if (redeployFlag) deploy(false, false);
+        if (redeployFlag) deploy(false, false, null);
 
         infos.values().forEach(OperatorInfo::login);
     }
@@ -168,7 +173,7 @@ public class Operator {
     //生物实体的数据同步 对于干员实体，也使用这个给自己同步即可
     //记得创建生物实体前先给operator设status
     //原则上不缓存attribute变更
-    public void entityCreated(OperatorEntity entity, boolean isNew) {
+    public boolean entityCreated(OperatorEntity entity, boolean isNew) {
         if (checkEntityLegality(entity, isNew)) {
             entity.setOperator(this);
             if (EventHooks.allowRecordEntity(this, entity, status)) this.entity = entity;
@@ -181,7 +186,9 @@ public class Operator {
             } else {
                 infos.values().forEach(info -> info.entityInit(entity));
             }
+            return true;
         }
+        return false;
     }
 
     public void requestMerge(OperatorEntity entity, @Nullable Codec<? extends OperatorInfo>... types) {
@@ -237,33 +244,53 @@ public class Operator {
 
     // ---[部署与撤退]---
 
+    /**
+     * 尝试部署一个干员
+     *
+     * @param focus            是否强制部署
+     * @param markWhenNoPlayer 是否在玩家不存在时标记部署
+     * @param expectPos        预期的部署位置
+     * @return <p> 返回的状态码 <p> 0 -> 完成部署  -1 -> 标记部署  1 -> 玩家不存在  2 -> 实体已存在  3 -> 状态不合法
+     * 4 -> 部署被实体类型或事件否决  5 -> 部署区无空位  6 -> 未找到合理的部署位置</p>
+     */
     @SuppressWarnings("all")
-    public boolean deploy(boolean focus, boolean markWhenNoPlayer) {//TODO
-        if (((entity != null || status != STATUS_READY) && !focus) || opeHandler.owner().left().isEmpty()) return false;
+    public int deploy(boolean focus, boolean markWhenNoPlayer, @Nullable BlockPos expectPos) {
 
-        if (identifier.type.allowDeploy(opeHandler.owner().left().get(), this) &&
-                opeHandler.addDeploying(this, true)) {
+        if (entity != null && !focus) return 2;
 
-            boolean flag = true;
+        if (status != STATUS_READY && !focus) return 3;
 
-            //find deploy pos
-            //post event
-
-            flag = flag && retreat(true, null, false);
-
-            if (!flag) return false;
-
-            //执行部署行为
-            //deploy in opeHandler
-            //post event
-
-//        lastPos = //标记新的部署位置
-            status = STATUS_TRACKING;
-//        entity =
-//        deployID =
-            return true;
+        if (opeHandler.owner().left().isEmpty()) {
+            if (markWhenNoPlayer) {
+                this.redeployFlag = true;
+                return -1;
+            }
+            return 1;
         }
-        return false;
+
+        ServerPlayer player = opeHandler.owner().left().get();
+        if (!identifier.type.allowDeploy(player, this) || !EventHooks.allowOperatorDeploy(player, this)) return 4;
+        if (!opeHandler.addDeploying(this, true)) return 5;
+
+        BlockPos pos = identifier.type.findPlaceForGenerate(player, expectPos);
+        if (pos == null) return 6;
+
+        if (focus && entity != null) {
+            retreat(true, null, false);
+        }
+
+        this.status = STATUS_TRACKING;
+        OperatorEntity created = this.getType().createEntityInstance(this, player);
+        created.setPos(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+
+        opeHandler.addDeploying(this, false);
+        this.getType().onDeploy(created,player,this);
+        EventHooks.onDeploy(player,this,created);
+
+        player.serverLevel().addFreshEntity(created);
+
+        return 0;
+
     }
 
     /**

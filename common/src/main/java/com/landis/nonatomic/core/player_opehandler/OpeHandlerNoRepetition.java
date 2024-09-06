@@ -22,7 +22,7 @@ public class OpeHandlerNoRepetition implements OpeHandler {
     public static final Codec<OpeHandlerNoRepetition> CODEC = RecordCodecBuilder.create(a -> a.group(
             Registries.getOperatorTypeRegistry().byNameCodec().listOf().fieldOf("deploying").forGetter(i -> i.deploying),
             Registries.getOperatorTypeRegistry().byNameCodec().listOf().fieldOf("history").forGetter(i -> i.lastDeployingList),
-            Helper.mapLikeWithKeyProvider(Operator.CODEC,Operator::getType).fieldOf("operators").forGetter(i -> i.operators),
+            Helper.mapLikeWithKeyProvider(Operator.CODEC, Operator::getType).fieldOf("operators").forGetter(i -> i.operators),
             Codec.INT.fieldOf("max_deploying").forGetter(i -> i.maxDeployingListSize),
             Codec.BOOL.fieldOf("allow_place_placeholder").forGetter(i -> i.allowPlacePlaceholder),
             UUIDUtil.CODEC.fieldOf("uuid").forGetter(i -> i.uuid)
@@ -179,7 +179,7 @@ public class OpeHandlerNoRepetition implements OpeHandler {
                     operator.checkSelf();
                     if (redeployForListIncluded) {//如果请求重部署，为其标记
                         operator.skipResting();
-                        operator.deploy(false, true);
+                        operator.deploy(false, true, null);
                     }
                 }
             }
@@ -190,7 +190,7 @@ public class OpeHandlerNoRepetition implements OpeHandler {
             if (operator.getStatus() == Operator.STATUS_WORKING) {
                 operator.disconnectWithEntity();
                 flag = true;
-                if (redeployForListExcluded) operator.deploy(false, true);
+                if (redeployForListExcluded) operator.deploy(false, true, null);
             }
         }
 
@@ -223,7 +223,7 @@ public class OpeHandlerNoRepetition implements OpeHandler {
     @Override
     public void onRetreat(Operator operator) {
         for (int i = 0; i < deploying.size(); i++) {
-            if (deploying.get(i) == operator.getType()){
+            if (deploying.get(i) == operator.getType()) {
                 deploying.set(i, OperatorTypeRegistry.PLACE_HOLDER.get());
                 return;
             }
@@ -242,10 +242,10 @@ public class OpeHandlerNoRepetition implements OpeHandler {
 
     public static class LevelContainer {
         public static final Codec<LevelContainer> CODEC = RecordCodecBuilder.create(n -> n.group(
-                Helper.mapLikeWithKeyProvider(OpeHandlerNoRepetition.CODEC,h -> h.uuid).fieldOf("data").forGetter(i -> i.data),
+                Helper.mapLikeWithKeyProvider(OpeHandlerNoRepetition.CODEC, h -> h.uuid).fieldOf("data").forGetter(i -> i.data),
                 Codec.INT.fieldOf("max_deploying").forGetter(i -> i.maxDeploying),
                 Codec.BOOL.fieldOf("allow_place_placeholder").forGetter(i -> i.allowPlacePlaceholder)
-        ).apply(n,LevelContainer::new));
+        ).apply(n, LevelContainer::new));
 
         private final Map<UUID, OpeHandlerNoRepetition> data;
         public final int maxDeploying;
@@ -272,19 +272,22 @@ public class OpeHandlerNoRepetition implements OpeHandler {
             return data.get(player);
         }
 
-        public void initOperatorEntityLoading(OperatorEntity entity){
-            initOperatorEntity(entity,false);
+        public boolean initOperatorEntityLoading(OperatorEntity entity) {
+            return initOperatorEntity(entity, false);
         }
 
-        public void initOperatorEntityCreating(OperatorEntity entity){
-            initOperatorEntity(entity,true);
+        public boolean initOperatorEntityCreating(OperatorEntity entity) {
+            return initOperatorEntity(entity, true);
         }
 
-        public void initOperatorEntity(OperatorEntity entity, boolean isNew){
-            if(entity.getIdentifier() != null && entity.getBelongingUUID() != null){
+        public boolean initOperatorEntity(OperatorEntity entity, boolean isNew) {
+            if (entity.getIdentifier() != null && entity.getBelongingUUID() != null) {
                 OpeHandlerNoRepetition handler = data.get(entity.getBelongingUUID());
-                if(handler != null) handler.findOperator(entity.getIdentifier()).ifPresent(ope -> ope.entityCreated(entity,isNew));
-            }
+                if (handler == null) return false;
+                Optional<Operator> operator = handler.findOperator(entity.getIdentifier());
+                if(operator.isEmpty()) return false;
+                return operator.get().entityCreated(entity,isNew);
+            } return false;
         }
     }
 }

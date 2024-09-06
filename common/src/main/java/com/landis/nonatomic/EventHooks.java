@@ -7,6 +7,7 @@ import com.landis.nonatomic.misc.LevelAndPosRecorder;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -42,7 +43,7 @@ public class EventHooks {
     public static void onRetreat(Operator operator, Entity.RemovalReason focusDisconnect) {//TODO
     }
 
-    public static boolean allowOperatorDeploy(ServerPlayer player, Operator operator, LevelAndPosRecorder targetPos) {//TODO
+    public static boolean allowOperatorDeploy(ServerPlayer player, Operator operator) {//TODO
         return true;
     }
 

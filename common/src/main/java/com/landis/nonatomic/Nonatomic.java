@@ -2,6 +2,7 @@ package com.landis.nonatomic;
 
 import com.landis.nonatomic.core.OperatorType;
 import com.landis.nonatomic.core.player_opehandler.OpeHandlerNoRepetition;
+import com.landis.nonatomic.registry.EntityTypeRegistry;
 import com.landis.nonatomic.registry.OperatorInfoRegistry;
 import com.landis.nonatomic.registry.OperatorTypeRegistry;
 import dev.architectury.event.events.common.PlayerEvent;
@@ -22,6 +23,7 @@ public final class Nonatomic {
     }
 
     public static void registryInit() {
+        EntityTypeRegistry.REGISTER.register();
         OperatorTypeRegistry.REGISTER.register();
         OperatorInfoRegistry.REGISTER.register();
     }
