@@ -1,6 +1,5 @@
 package com.landis.nonatomic.core.player_opehandler;
 
-import com.landis.nonatomic.EventHooks;
 import com.landis.nonatomic.Helper;
 import com.landis.nonatomic.Registries;
 import com.landis.nonatomic.core.OpeHandler;
@@ -76,10 +75,14 @@ public class OpeHandlerNoRepetition implements OpeHandler {
     }
 
     @Override
-    public Either<ServerPlayer, UUID> owner() {
-        return owner == null ? Either.right(uuid) : Either.left(owner);
+    public @Nullable ServerPlayer owner() {
+        return owner;
     }
 
+    @Override
+    public UUID ownerUUId() {
+        return uuid;
+    }
 
     // ---[初始化与登出]---
 
@@ -143,7 +146,10 @@ public class OpeHandlerNoRepetition implements OpeHandler {
     @Override
     public boolean unlock(OperatorType type) {
         if (operators.containsKey(type)) return false;
-        operators.put(type, type.createDefaultInstance(this));
+        Operator operator = type.createDefaultInstance(this);
+        operator.init(this);
+        if (owner != null) operator.login(owner);
+        operators.put(type, operator);
         return true;
     }
 
@@ -263,6 +269,15 @@ public class OpeHandlerNoRepetition implements OpeHandler {
             this.allowPlacePlaceholder = allowPlacePlaceholder;
         }
 
+        public void login(ServerPlayer player) {
+            if (data.containsKey(player.getUUID())) data.get(player.getUUID()).login(player);
+            else
+                this.data.put(player.getUUID(), new OpeHandlerNoRepetition(maxDeploying, allowPlacePlaceholder, player));
+        }
+
+        public void logout(ServerPlayer player) {
+            data.get(player.getUUID()).logout();
+        }
 
         public OpeHandlerNoRepetition getDataFor(ServerPlayer player) {
             return data.computeIfAbsent(player.getUUID(), uuid -> new OpeHandlerNoRepetition(maxDeploying, allowPlacePlaceholder, player));
@@ -285,9 +300,9 @@ public class OpeHandlerNoRepetition implements OpeHandler {
                 OpeHandlerNoRepetition handler = data.get(entity.getBelongingUUID());
                 if (handler == null) return false;
                 Optional<Operator> operator = handler.findOperator(entity.getIdentifier());
-                if(operator.isEmpty()) return false;
-                return operator.get().entityCreated(entity,isNew);
-            } return false;
+                return operator.map(value -> value.entityCreated(entity, isNew)).orElse(false);
+            }
+            return false;
         }
     }
 }

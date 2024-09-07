@@ -49,17 +49,23 @@ public class OperatorEntity extends Mob {
         this.belonging = belonging.getUUID();
         this.operator = operatorData;
         this.identifier = operatorData.identifier;
-        AttachedData.opeHandlerGroupProvider(level.getServer()).initOperatorEntityCreating(this);
+        if(!AttachedData.opeHandlerGroupProvider(level.getServer()).initOperatorEntityCreating(this)){
+            this.remove(RemovalReason.DISCARDED);
+            return;
+        }
         opeInit();
     }
 
     @Override
     public void load(CompoundTag compoundTag) {
         super.load(compoundTag);
-        belonging = compoundTag.getUUID("ope_belonging");
-        identifier = Operator.Identifier.CODEC.parse(NbtOps.INSTANCE, compoundTag.get("ope_identifier")).get().orThrow();
+        belonging = compoundTag.contains("ope_belonging") ? compoundTag.getUUID("ope_belonging") : null;
+        identifier = Operator.Identifier.CODEC.parse(NbtOps.INSTANCE, compoundTag.get("ope_identifier")).get().left().orElse(null);
         if(this.level() instanceof ServerLevel serverLevel) {
-            AttachedData.opeHandlerGroupProvider(serverLevel.getServer()).initOperatorEntityLoading(this);
+            if(!AttachedData.opeHandlerGroupProvider(serverLevel.getServer()).initOperatorEntityLoading(this)) {
+                this.remove(RemovalReason.DISCARDED);
+                return;
+            }
             opeInit();
         }
     }
@@ -77,5 +83,10 @@ public class OperatorEntity extends Mob {
      * */
     protected Collection<? extends OperatorInfo> requestExternalData(){
         return Collections.emptyList();
+    }
+
+    @Override
+    public boolean shouldRender(double d, double e, double f) {
+        return super.shouldRender(d, e, f);
     }
 }

@@ -3,6 +3,7 @@ package com.landis.nonatomic.core;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import net.minecraft.server.level.ServerPlayer;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.List;
@@ -19,7 +20,14 @@ public interface OpeHandler {
     void logout();
 
 
-    Either<ServerPlayer,UUID> owner();
+    @Nullable
+    ServerPlayer owner();
+
+    UUID ownerUUId();
+
+    default Either<ServerPlayer, UUID> ownerOrUUID(){
+        return owner() == null ? Either.right(ownerUUId()) : Either.left(owner());
+    };
 
     List<Operator> deploying();
 

@@ -19,6 +19,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.system.NonnullDefault;
 
 import java.util.*;
 import java.util.function.Function;
@@ -38,7 +39,8 @@ public class Operator {
             Identifier.CODEC.fieldOf("identifier").forGetter(i -> i.identifier),
             OperatorInfo.CODEC.listOf().fieldOf("infos").forGetter(i -> i.infos.values().stream().toList()),
             EntityFinderInfo.CODEC.optionalFieldOf("finder").forGetter(i -> i.entityFinderInfo),
-            Codec.BOOL.fieldOf("redeploy").forGetter(i -> i.redeployFlag)
+            Codec.BOOL.fieldOf("redeploy").forGetter(i -> i.redeployFlag),
+            ResourceLocation.CODEC.fieldOf("status").forGetter(i -> i.status)
     ).apply(n, Operator::new));
 
     //预配的状态 默认只有STATUS_WORKING会保存实体
@@ -62,14 +64,15 @@ public class Operator {
     public final Identifier identifier;
     public final HashMap<Codec<? extends OperatorInfo>, OperatorInfo> infos = new HashMap<>();
 
+    @NonnullDefault
     private OpeHandler opeHandler;
 
     @Nullable
     private OperatorEntity entity;
-    private @SuppressWarnings("all") Optional<EntityFinderInfo> entityFinderInfo;
+    private @SuppressWarnings("all") Optional<EntityFinderInfo> entityFinderInfo = Optional.empty();
     private boolean redeployFlag = false;
 
-    private ResourceLocation status;
+    private ResourceLocation status = STATUS_READY;
 
     public ResourceLocation getStatus() {
         return status;
@@ -110,10 +113,11 @@ public class Operator {
     }
 
     @SuppressWarnings("all")
-    public Operator(Identifier identifier, List<? extends OperatorInfo> infos, Optional<EntityFinderInfo> entityFinderInfo, boolean redeployFlag) {
+    public Operator(Identifier identifier, List<? extends OperatorInfo> infos, Optional<EntityFinderInfo> entityFinderInfo, boolean redeployFlag, ResourceLocation status) {
         this.identifier = identifier;
         this.entityFinderInfo = entityFinderInfo;
         this.redeployFlag = redeployFlag;
+        this.status = status;
         for (OperatorInfo info : infos) {
             this.infos.put(info.codec(), info);
         }
@@ -135,7 +139,7 @@ public class Operator {
         if (status == STATUS_TRACKING) {
             if (entity == null) disconnectWithEntity();
             else {
-                if (EventHooks.allowOperatorRedeployWhenLogin(opeHandler.owner().left().get(), this, entity))
+                if (EventHooks.allowOperatorRedeployWhenLogin(opeHandler.owner(), this, entity))
                     this.redeployFlag = true;
                 mergeDataFromEntity(entity, true);
                 disconnectWithEntity(Entity.RemovalReason.UNLOADED_WITH_PLAYER, STATUS_TRACKING);
@@ -148,8 +152,8 @@ public class Operator {
     // ---[实体处理部分]---
 
     public OperatorEntity tryFindEntity() {
-        if (entity != null || opeHandler.owner().left().isEmpty()) return entity;
-        Optional<OperatorEntity> e = findEntity(opeHandler.owner().left().get().getServer());
+        if (entity != null || opeHandler.owner() == null) return entity;
+        Optional<OperatorEntity> e = findEntity(opeHandler.owner().getServer());
         if (status == STATUS_TRACKING && e.isPresent()) {
             this.entity = e.get();
         }
@@ -165,8 +169,8 @@ public class Operator {
     //检查实体合法性
     @SuppressWarnings("all")
     public boolean checkEntityLegality(OperatorEntity entity, boolean newCreated) {
-        return entity != null && entity.getBelongingUUID() == opeHandler.owner().map(ServerPlayer::getUUID, p -> p) &&
-                entity.getIdentifier() == this.identifier &&
+        return entity != null && entity.getBelongingUUID().equals(opeHandler.ownerUUId()) &&
+                entity.getIdentifier().equals(this.identifier) &&
                 (newCreated || (this.entityFinderInfo.isPresent() && this.entityFinderInfo.get().match(entity)));
     }
 
@@ -219,7 +223,7 @@ public class Operator {
         if (entity != null && reason != null) {
             mergeDataFromEntity(entity, false);
             if (reason != Entity.RemovalReason.KILLED) entity.remove(reason);
-            identifier.type.onRetreat(opeHandler.owner(), this);
+            identifier.type.onRetreat(opeHandler.ownerOrUUID(), this);
             EventHooks.onRetreat(this, reason);
             entity = null;
         }
@@ -232,7 +236,7 @@ public class Operator {
         if (status == STATUS_REST || status == STATUS_READY) {
             disconnectWithEntity(Entity.RemovalReason.DISCARDED, status);
         } else if (status == STATUS_TRACKING) {
-            if (entityFinderInfo.isEmpty() || (opeHandler.owner().left().isPresent() && !checkEntityLegality(entity, false)))
+            if (entityFinderInfo.isEmpty() || (opeHandler.owner() != null && !checkEntityLegality(entity, false)))
                 disconnectWithEntity();
         } else if (status == STATUS_WORKING || status == STATUS_ALERT) {
             if (entityFinderInfo.isEmpty()) disconnectWithEntity();
@@ -260,7 +264,7 @@ public class Operator {
 
         if (status != STATUS_READY && !focus) return 3;
 
-        if (opeHandler.owner().left().isEmpty()) {
+        if (opeHandler.owner() == null) {
             if (markWhenNoPlayer) {
                 this.redeployFlag = true;
                 return -1;
@@ -268,7 +272,7 @@ public class Operator {
             return 1;
         }
 
-        ServerPlayer player = opeHandler.owner().left().get();
+        ServerPlayer player = opeHandler.owner();
         if (!identifier.type.allowDeploy(player, this) || !EventHooks.allowOperatorDeploy(player, this)) return 4;
         if (!opeHandler.addDeploying(this, true)) return 5;
 
@@ -282,6 +286,8 @@ public class Operator {
         this.status = STATUS_TRACKING;
         OperatorEntity created = this.getType().createEntityInstance(this, player);
         created.setPos(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+
+        if(created.isRemoved()) return 7;
 
         opeHandler.addDeploying(this, false);
         this.getType().onDeploy(created,player,this);
@@ -303,7 +309,7 @@ public class Operator {
      */
     @SuppressWarnings("deprecation")
     public boolean retreat(boolean focus, OperatorEntity otherEntity, boolean safeMode) {
-        if (!focus && opeHandler.owner().left().isEmpty()) return false;
+        if (!focus && opeHandler.owner() == null) return false;
 
         if (checkEntityLegality(otherEntity, false)) this.entity = otherEntity;
 
@@ -314,7 +320,7 @@ public class Operator {
         }
 
 
-        Optional<ResourceLocation> state = identifier.type.allowRetreat(entity, opeHandler.owner(), this) ? EventHooks.allowOperatorRetreat(opeHandler.owner().left().get(), this, otherEntity) : Optional.empty();
+        Optional<ResourceLocation> state = identifier.type.allowRetreat(entity, opeHandler.ownerOrUUID(), this) ? EventHooks.allowOperatorRetreat(opeHandler.owner(), this, otherEntity) : Optional.empty();
         if (state.isPresent()) {
             disconnectWithEntity(Entity.RemovalReason.UNLOADED_WITH_PLAYER, state.get());
             opeHandler.onRetreat(this);
@@ -380,7 +386,7 @@ public class Operator {
         }
 
         public boolean match(OperatorEntity entity) {
-            return entity.getUUID() == this.entityUUID;
+            return entity.getUUID().equals(this.entityUUID);
         }
     }
 }
