@@ -38,6 +38,7 @@ public class OperatorEntity extends Mob {
     private @NonnullDefault UUID belonging;
     private @NonnullDefault Operator.Identifier identifier;
     private @NonnullDefault Operator operator;
+    public boolean opeNewCreatedFlag = false;
 
     public OperatorEntity(EntityType<? extends OperatorEntity> entityType, Level level) {
         super(entityType, level);
@@ -49,6 +50,7 @@ public class OperatorEntity extends Mob {
         this.belonging = belonging.getUUID();
         this.operator = operatorData;
         this.identifier = operatorData.identifier;
+        this.opeNewCreatedFlag = true;
     }
 
     @Override

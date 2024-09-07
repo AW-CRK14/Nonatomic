@@ -47,7 +47,7 @@ public abstract class OperatorType {
                         else safeFlag = 0;
                     } else {
                         BlockState state = level.getBlockState(pos);
-                        if (!state.isAir()) {
+                        if (!state.isAir() && !state.getCollisionShape(level,pos).isEmpty()) {
                             if (state.getFluidState().isEmpty() && !getEntityType().isBlockDangerous(state)) {
                                 safePos.add(pos.above());
                             }

@@ -35,7 +35,7 @@ public final class Nonatomic {
         EntityEvent.ADD.register((entity, world) -> {
             if(world instanceof ServerLevel serverLevel && entity instanceof OperatorEntity opeEntity) {
 
-                if(!AttachedData.opeHandlerGroupProvider(serverLevel.getServer()).initOperatorEntityLoading(opeEntity)) {
+                if(!AttachedData.opeHandlerGroupProvider(serverLevel.getServer()).initOperatorEntity(opeEntity)) {
                     return EventResult.interruptFalse();
                 }
                 opeEntity.opeInit();

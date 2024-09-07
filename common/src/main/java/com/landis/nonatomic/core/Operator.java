@@ -177,7 +177,8 @@ public class Operator {
     //生物实体的数据同步 对于干员实体，也使用这个给自己同步即可
     //记得创建生物实体前先给operator设status
     //原则上不缓存attribute变更
-    public boolean entityCreated(OperatorEntity entity, boolean isNew) {
+    public boolean entityCreated(OperatorEntity entity) {
+        boolean isNew = entity.opeNewCreatedFlag;
         if (checkEntityLegality(entity, isNew)) {
             entity.setOperator(this);
             if (EventHooks.allowRecordEntity(this, entity, status)) this.entity = entity;
