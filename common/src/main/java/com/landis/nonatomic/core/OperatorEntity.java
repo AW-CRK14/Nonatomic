@@ -49,11 +49,6 @@ public class OperatorEntity extends Mob {
         this.belonging = belonging.getUUID();
         this.operator = operatorData;
         this.identifier = operatorData.identifier;
-        if(!AttachedData.opeHandlerGroupProvider(level.getServer()).initOperatorEntityCreating(this)){
-            this.remove(RemovalReason.DISCARDED);
-            return;
-        }
-        opeInit();
     }
 
     @Override
@@ -61,13 +56,6 @@ public class OperatorEntity extends Mob {
         super.load(compoundTag);
         belonging = compoundTag.contains("ope_belonging") ? compoundTag.getUUID("ope_belonging") : null;
         identifier = Operator.Identifier.CODEC.parse(NbtOps.INSTANCE, compoundTag.get("ope_identifier")).get().left().orElse(null);
-        if(this.level() instanceof ServerLevel serverLevel) {
-            if(!AttachedData.opeHandlerGroupProvider(serverLevel.getServer()).initOperatorEntityLoading(this)) {
-                this.remove(RemovalReason.DISCARDED);
-                return;
-            }
-            opeInit();
-        }
     }
 
     @Override
@@ -77,7 +65,7 @@ public class OperatorEntity extends Mob {
         return super.saveWithoutId(compoundTag);
     }
 
-    protected void opeInit(){}
+    public void opeInit(){}
 
     /**可以覆写此方法，此方法在允许数据合并时被调用。
      * */
