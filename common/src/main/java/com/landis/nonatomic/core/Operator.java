@@ -79,7 +79,7 @@ public class Operator {
     }
 
     public void skipResting() {
-        if (status == STATUS_REST) status = STATUS_READY;
+        if (status.equals(STATUS_REST)) status = STATUS_READY;
     }
 
     public @Nullable OperatorEntity getEntity() {
@@ -136,7 +136,7 @@ public class Operator {
     }
 
     public void logout() {
-        if (status == STATUS_TRACKING) {
+        if (status.equals(STATUS_TRACKING)) {
             if (entity == null) disconnectWithEntity();
             else {
                 if (EventHooks.allowOperatorRedeployWhenLogin(opeHandler.owner(), this, entity))
@@ -154,7 +154,7 @@ public class Operator {
     public OperatorEntity tryFindEntity() {
         if (entity != null || opeHandler.owner() == null) return entity;
         Optional<OperatorEntity> e = findEntity(opeHandler.owner().getServer());
-        if (status == STATUS_TRACKING && e.isPresent()) {
+        if (status.equals(STATUS_TRACKING) && e.isPresent()) {
             this.entity = e.get();
         }
         return e.orElse(null);
@@ -234,15 +234,15 @@ public class Operator {
     }
 
     public void checkSelf() {
-        if (status == STATUS_REST || status == STATUS_READY) {
+        if (status.equals(STATUS_REST) || status.equals(STATUS_READY)) {
             disconnectWithEntity(Entity.RemovalReason.DISCARDED, status);
-        } else if (status == STATUS_TRACKING) {
+        } else if (status.equals(STATUS_TRACKING)) {
             if (entityFinderInfo.isEmpty() || (opeHandler.owner() != null && !checkEntityLegality(entity, false)))
                 disconnectWithEntity();
-        } else if (status == STATUS_WORKING || status == STATUS_ALERT) {
+        } else if (status.equals(STATUS_WORKING) || status.equals(STATUS_ALERT)) {
             if (entityFinderInfo.isEmpty()) disconnectWithEntity();
             entity = null;
-        } else if (status == STATUS_DISPATCHING) {
+        } else if (status.equals(STATUS_DISPATCHING)) {
             disconnectWithEntity(Entity.RemovalReason.DISCARDED, STATUS_DISPATCHING);
         }
     }
@@ -263,7 +263,7 @@ public class Operator {
 
         if (entity != null && !focus) return 2;
 
-        if (status != STATUS_READY && !focus) return 3;
+        if (!status.equals(STATUS_READY) && !focus) return 3;
 
         if (opeHandler.owner() == null) {
             if (markWhenNoPlayer) {
@@ -315,7 +315,7 @@ public class Operator {
         if (checkEntityLegality(otherEntity, false)) this.entity = otherEntity;
 
         //为什么这会需要撤退呢
-        if (status == STATUS_READY || status == STATUS_REST) {
+        if (status.equals(STATUS_READY) || status.equals(STATUS_REST)) {
             if (safeMode) disconnectWithEntity();
             return false;
         }

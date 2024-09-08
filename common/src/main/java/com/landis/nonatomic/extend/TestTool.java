@@ -27,14 +27,7 @@ public class TestTool extends Item {
         @Override
         public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand interactionHand) {
             if (!level.isClientSide()) {
-                OpeHandlerNoRepetition.LevelContainer container = AttachedData.opeHandlerGroupProvider(level.getServer());
-                BlockPos pos = OperatorTypeRegistry.TEST_OPERATOR.get().findPlaceForGenerate((ServerPlayer) player, interactionHand == InteractionHand.OFF_HAND ? player.blockPosition().north(3) : null);
-                OperatorEntity entity = new OperatorEntity(EntityTypeRegistry.TEST.get(), (ServerLevel) level, player, new Operator(new Operator.Identifier(OperatorTypeRegistry.TEST_OPERATOR.get())));
-                if(!entity.isRemoved()){
-                    entity.setPos(pos.getX(), pos.getY(), pos.getZ());
-                    level.addFreshEntity(entity);
-                }
-                System.out.println("testT1 run");
+                AttachedData.opeHandlerGroupProvider(level.getServer()).deploy(OperatorTypeRegistry.TEST_OPERATOR.get(),(ServerPlayer) player,interactionHand == InteractionHand.MAIN_HAND ? player.blockPosition().north(3) : null);
             }
             return super.use(level, player, interactionHand);
         }

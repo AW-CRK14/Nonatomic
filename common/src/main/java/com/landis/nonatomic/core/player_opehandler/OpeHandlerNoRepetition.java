@@ -10,6 +10,7 @@ import com.landis.nonatomic.registry.OperatorTypeRegistry;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
@@ -296,6 +297,10 @@ public class OpeHandlerNoRepetition implements OpeHandler {
                 return operator.map(value -> value.entityCreated(entity)).orElse(false);
             }
             return false;
+        }
+
+        public boolean deploy(OperatorType type, ServerPlayer player, BlockPos expectPos) {
+            return getDataFor(player).findOperator(new Operator.Identifier(type)).map(o -> o.deploy(true, false, expectPos) == 0).orElse(false);
         }
     }
 }
