@@ -9,7 +9,6 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -39,7 +38,7 @@ public class Operator {
             Identifier.CODEC.fieldOf("identifier").forGetter(i -> i.identifier),
             OperatorInfo.CODEC.listOf().fieldOf("infos").forGetter(i -> i.infos.values().stream().toList()),
             EntityFinderInfo.CODEC.optionalFieldOf("finder").forGetter(i -> i.entityFinderInfo),
-            Codec.BOOL.fieldOf("redeploy").forGetter(i -> i.redeployFlag),
+            Codec.BOOL.fieldOf("redeploy").forGetter(i -> i.getRedeployFlag()),
             ResourceLocation.CODEC.fieldOf("status").forGetter(i -> i.status)
     ).apply(n, Operator::new));
 
@@ -94,6 +93,12 @@ public class Operator {
         return opeHandler;
     }
 
+    public boolean getRedeployFlag() {
+        return redeployFlag;
+    }
+
+    ;
+
     public OperatorType getType() {
         return identifier.type();
     }
@@ -130,7 +135,11 @@ public class Operator {
     }
 
     public void login(ServerPlayer player) {
-        if (redeployFlag) deploy(false, false, null);
+        if (redeployFlag) {
+            redeployFlag = false;
+            int result = redeploy();
+            if (result != 0) EventHooks.redeployFailed(opeHandler.owner(), this, result);
+        }
 
         infos.values().forEach(OperatorInfo::login);
     }
@@ -139,10 +148,10 @@ public class Operator {
         if (status.equals(STATUS_TRACKING)) {
             if (entity == null) disconnectWithEntity();
             else {
-                if (EventHooks.allowOperatorRedeployWhenLogin(opeHandler.owner(), this, entity))
-                    this.redeployFlag = true;
                 mergeDataFromEntity(entity, true);
                 disconnectWithEntity(Entity.RemovalReason.UNLOADED_WITH_PLAYER, STATUS_TRACKING);
+                if (EventHooks.allowOperatorRedeployWhenLogin(opeHandler.owner(), this, entity))
+                    this.redeployFlag = true;
             }
         }
         infos.values().forEach(OperatorInfo::logout);
@@ -226,7 +235,7 @@ public class Operator {
             if (reason != Entity.RemovalReason.KILLED) entity.remove(reason);
             identifier.type.onRetreat(opeHandler.ownerOrUUID(), this);
             EventHooks.onRetreat(this, reason);
-            entity = null;
+            this.entity = null;
         }
         entityFinderInfo = Optional.empty();
         redeployFlag = false;
@@ -249,56 +258,82 @@ public class Operator {
 
     // ---[部署与撤退]---
 
+    private int redeploy() {
+        ServerPlayer player = opeHandler.owner();
+        if (!identifier.type.allowDeploy(player, this) || !EventHooks.allowOperatorDeploy(player, this)) return 1;
+
+        BlockPos pos = identifier.type.findPlaceForGenerate(player, null);
+        if (pos == null) return 2;
+
+        OperatorEntity created = this.getType().createEntityInstance(this, player);
+        created.setPos(pos.getX(), pos.getY(), pos.getZ());
+        this.getType().onDeploy(created, player, this);
+        EventHooks.onDeploy(player, this, created, true);
+
+        player.serverLevel().addFreshEntity(created);
+
+        return 0;
+    }
+
+    public int deploy(boolean focus, boolean markWhenNoPlayer, @Nullable BlockPos expectPos) {
+        return deploy(focus, markWhenNoPlayer, -1, expectPos);
+    }
+
+
     /**
      * 尝试部署一个干员
      *
      * @param focus            是否强制部署
      * @param markWhenNoPlayer 是否在玩家不存在时标记部署
      * @param expectPos        预期的部署位置
-     * @return <p> 返回的状态码 <p> 0 -> 完成部署  -1 -> 标记部署  1 -> 玩家不存在  2 -> 实体已存在  3 -> 状态不合法
-     * 4 -> 部署被实体类型或事件否决  5 -> 部署区无空位  6 -> 未找到合理的部署位置</p>
+     * @return <p> 返回的状态码 <p> >0 -> 完成部署的位置索引  -256 -> 标记部署  -1 -> 玩家不存在  -2 -> 实体已存在  -3 -> 状态不合法
+     * -4 -> 部署被实体类型或事件否决  -5 -> 部署区无空位  -6 -> 未找到合理的部署位置</p>
      */
     @SuppressWarnings("all")
-    public int deploy(boolean focus, boolean markWhenNoPlayer, @Nullable BlockPos expectPos) {
+    public int deploy(boolean focus, boolean markWhenNoPlayer, int expectIndex, @Nullable BlockPos expectPos) {
 
-        if (entity != null && !focus) return 2;
+        if (entity != null && !focus) return -2;
 
-        if (!status.equals(STATUS_READY) && !focus) return 3;
+        if (!status.equals(STATUS_READY) && !focus) return -3;
 
         if (opeHandler.owner() == null) {
             if (markWhenNoPlayer) {
                 this.redeployFlag = true;
-                return -1;
+                return -256;
             }
-            return 1;
+            return -1;
         }
 
         ServerPlayer player = opeHandler.owner();
-        if (!identifier.type.allowDeploy(player, this) || !EventHooks.allowOperatorDeploy(player, this)) return 4;
-        if (!opeHandler.addDeploying(this, true)) return 5;
+        if (!identifier.type.allowDeploy(player, this) || !EventHooks.allowOperatorDeploy(player, this)) return -4;
+
+        int indexFlag = -1;
+        if (focus && entity != null) {
+            indexFlag = retreat(true, null, false);
+        }
+
+        if (indexFlag < 0) {
+            indexFlag = opeHandler.addDeploying(this, expectIndex, true, true);
+        }
+        if (indexFlag < 0) return -5;
 
         BlockPos pos = identifier.type.findPlaceForGenerate(player, expectPos);
-        if (pos == null) return 6;
-
-        if (focus && entity != null) {
-            retreat(true, null, false);
-        }
+        if (pos == null) return -6;
 
         this.status = STATUS_TRACKING;
         OperatorEntity created = this.getType().createEntityInstance(this, player);
-        created.setPos(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+        created.setPos(pos.getX(), pos.getY(), pos.getZ());
 
-        if(created.isRemoved()) return 7;
 
-        opeHandler.addDeploying(this, false);
-        this.getType().onDeploy(created,player,this);
-        EventHooks.onDeploy(player,this,created);
+        indexFlag = opeHandler.addDeploying(this, indexFlag, false, true);
+        this.getType().onDeploy(created, player, this);
+        EventHooks.onDeploy(player, this, created, false);
 
         player.serverLevel().addFreshEntity(created);
 
-        return 0;
-
+        return indexFlag;
     }
+
 
     /**
      * 使该干员撤退 不包含自然撤退情况 不要在客户端调用这个
@@ -306,34 +341,32 @@ public class Operator {
      * @param focus       是否强制撤退
      * @param otherEntity 选配，目标实体。一般给工作或巡逻状态干员用的。
      * @param safeMode    若开启，则对于不需要执行操作的分支也会进行操作以保证数据存储的正确性
-     * @return true -> 成功撤退  false -> 不允许撤退
+     * @return <0 -> 不被允许的撤退或不支持的部署位置索引  否则为对应的部署位置索引
      */
     @SuppressWarnings("deprecation")
-    public boolean retreat(boolean focus, OperatorEntity otherEntity, boolean safeMode) {
-        if (!focus && opeHandler.owner() == null) return false;
+    public int retreat(boolean focus, OperatorEntity otherEntity, boolean safeMode) {
+        if (!focus && opeHandler.owner() == null) return -1;
 
         if (checkEntityLegality(otherEntity, false)) this.entity = otherEntity;
 
         //为什么这会需要撤退呢
         if (status.equals(STATUS_READY) || status.equals(STATUS_REST)) {
-            if (safeMode) disconnectWithEntity();
-            return false;
+            if (safeMode) disconnectWithEntity(Entity.RemovalReason.DISCARDED, STATUS_REST);
+            return -1;
         }
 
 
         Optional<ResourceLocation> state = identifier.type.allowRetreat(entity, opeHandler.ownerOrUUID(), this) ? EventHooks.allowOperatorRetreat(opeHandler.owner(), this, otherEntity) : Optional.empty();
         if (state.isPresent()) {
             disconnectWithEntity(Entity.RemovalReason.UNLOADED_WITH_PLAYER, state.get());
-            opeHandler.onRetreat(this);
-            return true;
+            return opeHandler.onRetreat(this);
         }
 
         if (focus) {
             disconnectWithEntity(Entity.RemovalReason.DISCARDED, STATUS_REST);
-            opeHandler.onRetreat(this);
-            return true;
+            return opeHandler.onRetreat(this);
         }
-        return false;
+        return -1;
     }
 
     //当干员死亡 不处理死亡行为本身

@@ -27,7 +27,7 @@ public class EventHooks {
 
     //在干员创建时触发，判断是否允许记录
     public static boolean allowRecordEntity( Operator operator, OperatorEntity entity, ResourceLocation status) {
-        return status == Operator.STATUS_DISPATCHING;
+        return status.equals(Operator.STATUS_TRACKING);
     }
 
     /**
@@ -47,11 +47,13 @@ public class EventHooks {
         return true;
     }
 
-    public static void onDeploy(ServerPlayer player, Operator operator, OperatorEntity entity){//TODO
+    public static void onDeploy(ServerPlayer player, Operator operator, OperatorEntity entity, boolean isRedeploy){//TODO
     }
 
     @SafeVarargs
     public static Either<Boolean, List<Codec<? extends OperatorInfo>>> allowDataMerge(boolean followingLogout, OperatorEntity entity, Operator operator, @Nullable Codec<? extends OperatorInfo>... types) {
         return Either.left(true);//TODO
     }
+
+    public static void redeployFailed(ServerPlayer player, Operator operator, int flag) {}
 }

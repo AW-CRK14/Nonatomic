@@ -28,7 +28,7 @@ public class ComponentRegistry implements WorldComponentInitializer {
 
     public static class OpeHandler extends Component<OpeHandlerNoRepetition.LevelContainer> {
         public OpeHandler() {
-            super(() -> new OpeHandlerNoRepetition.LevelContainer(4, true), OpeHandlerNoRepetition.LevelContainer.CODEC);
+            super(() -> new OpeHandlerNoRepetition.LevelContainer(4), OpeHandlerNoRepetition.LevelContainer.CODEC);
         }
     }
 

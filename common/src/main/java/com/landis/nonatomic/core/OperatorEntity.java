@@ -38,10 +38,11 @@ public class OperatorEntity extends Mob {
     private @NonnullDefault UUID belonging;
     private @NonnullDefault Operator.Identifier identifier;
     private @NonnullDefault Operator operator;
-    public boolean opeNewCreatedFlag = false;
+    public final boolean opeNewCreatedFlag;
 
     public OperatorEntity(EntityType<? extends OperatorEntity> entityType, Level level) {
         super(entityType, level);
+        opeNewCreatedFlag = false;
     }
 
     //用这个创建您的新干员
