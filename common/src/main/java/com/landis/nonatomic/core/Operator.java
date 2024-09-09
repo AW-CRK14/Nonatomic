@@ -38,7 +38,7 @@ public class Operator {
             Identifier.CODEC.fieldOf("identifier").forGetter(i -> i.identifier),
             OperatorInfo.CODEC.listOf().fieldOf("infos").forGetter(i -> i.infos.values().stream().toList()),
             EntityFinderInfo.CODEC.optionalFieldOf("finder").forGetter(i -> i.entityFinderInfo),
-            Codec.BOOL.fieldOf("redeploy").forGetter(i -> i.getRedeployFlag()),
+            Codec.BOOL.fieldOf("redeploy").forGetter(i -> i.redeployFlag),
             ResourceLocation.CODEC.fieldOf("status").forGetter(i -> i.status)
     ).apply(n, Operator::new));
 
@@ -92,12 +92,6 @@ public class Operator {
     public OpeHandler getOpeHandler() {
         return opeHandler;
     }
-
-    public boolean getRedeployFlag() {
-        return redeployFlag;
-    }
-
-    ;
 
     public OperatorType getType() {
         return identifier.type();
