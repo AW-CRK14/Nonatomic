@@ -7,10 +7,9 @@ import com.landis.nonatomic.misc.LevelAndPosRecorder;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.chunk.LevelChunk;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -25,9 +24,22 @@ public class EventHooks {
         return true;
     }
 
-    //在干员创建时触发，判断是否允许记录
-    public static boolean allowRecordEntity( Operator operator, OperatorEntity entity, ResourceLocation status) {
-        return status.equals(Operator.STATUS_TRACKING);
+    public static boolean onOperatorEntityUninstall(OperatorEntity entity) {
+        Operator operator = entity.getOperator();
+        if (operator.getStatus().equals(Operator.STATUS_TRACKING) && !entity.isRemoved()) {
+            if (entity.getOwner() != null) {
+                entity.moveTo(entity.getOwner().getX(), entity.getOwner().getY(), entity.getOwner().getZ());
+                operator.markLastPos(new LevelAndPosRecorder(entity));
+                return true;
+            } else {//正常情况下不会被执行
+                operator.disconnectWithEntity();
+                return false;
+            }
+        } else {
+            operator.markLastPos(new LevelAndPosRecorder(entity));
+            operator.setEntityNull();
+            return false;
+        }
     }
 
     /**
@@ -47,7 +59,7 @@ public class EventHooks {
         return true;
     }
 
-    public static void onDeploy(ServerPlayer player, Operator operator, OperatorEntity entity, boolean isRedeploy){//TODO
+    public static void onDeploy(ServerPlayer player, Operator operator, OperatorEntity entity, boolean isRedeploy) {//TODO
     }
 
     @SafeVarargs
@@ -55,5 +67,10 @@ public class EventHooks {
         return Either.left(true);//TODO
     }
 
-    public static void redeployFailed(ServerPlayer player, Operator operator, int flag) {}
+    public static void redeployFailed(ServerPlayer player, Operator operator, int flag) {
+    }
+
+    public static boolean ifTakeDeployPlace(Operator operator,ResourceLocation status){
+        return status.equals(Operator.STATUS_TRACKING);
+    }
 }

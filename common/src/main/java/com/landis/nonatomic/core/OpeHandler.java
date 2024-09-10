@@ -43,9 +43,6 @@ public interface OpeHandler {
 
     boolean delete(Operator type);
 
-
-    boolean fixDeploying(boolean redeployForListIncluded, boolean redeployForListExcluded);
-
     //WARN:不要直接调用以下方法！请使用operator内的方法
 
     /**

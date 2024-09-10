@@ -164,53 +164,6 @@ public class OpeHandlerNoRepetition implements OpeHandler {
     }
 
     @Override
-    public boolean fixDeploying(boolean redeployForListIncluded, boolean redeployForListExcluded) {
-        //创建标记与缓存
-        boolean flag = false;
-        ArrayList<OperatorType> cache = new ArrayList<>(deploying);
-
-        //寻找不在部署行列的
-        List<Operator> notDeploying = operators.keySet().stream().filter(type -> !deploying.contains(type)).map(operators::get).toList();
-
-        //遍历在部署行列的
-        for (int i = 0; i < deploying.size(); i++) {
-            //跳过占位符
-            OperatorType type = deploying.get(i);
-            if (type == OperatorTypeRegistry.PLACE_HOLDER.get()) continue;
-            //获取对应的干员 如果为null或找不到实体，标记并修改部署列
-            Operator operator = operators.get(type);
-            if (operator == null || operator.getEntity() == null) {
-                flag = true;
-                deploying.set(i, OperatorTypeRegistry.PLACE_HOLDER.get());
-                if (operator != null) {
-                    //如果干员非null 要求自检
-                    operator.checkSelf();
-                    if (redeployForListIncluded) {//如果请求重部署，为其标记
-                        operator.skipResting();
-                        operator.deploy(false, true, null);
-                    }
-                }
-            }
-        }
-
-        //遍历没在list里但是也被标记为部署的
-        for (Operator operator : notDeploying) {
-            if (operator.getStatus() == Operator.STATUS_WORKING) {
-                operator.disconnectWithEntity();
-                flag = true;
-                if (redeployForListExcluded) operator.deploy(false, true, null);
-            }
-        }
-
-        if (flag) {
-            lastDeployingList.clear();
-            lastDeployingList.addAll(cache);
-        }
-
-        return flag;
-    }
-
-    @Override
     public int addDeploying(Operator ope, int exceptIndex, boolean simulate, boolean allowDispatch) {
         if (exceptIndex >= deploying.size() || deploying.contains(ope.getType())) return -1;
         if (exceptIndex >= 0) {
@@ -299,7 +252,11 @@ public class OpeHandlerNoRepetition implements OpeHandler {
         }
 
         public boolean deploy(OperatorType type, ServerPlayer player, BlockPos expectPos) {
-            return getDataFor(player).findOperator(new Operator.Identifier(type)).map(o -> o.deploy(true, false, expectPos) == 0).orElse(false);
+            return findOperator(type, player).map(o -> o.deploy(true, false, expectPos) == 0).orElse(false);
+        }
+
+        public Optional<Operator> findOperator(OperatorType type, ServerPlayer player) {
+            return getDataFor(player).findOperator(new Operator.Identifier(type));
         }
     }
 }

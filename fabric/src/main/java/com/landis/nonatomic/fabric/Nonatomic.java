@@ -10,9 +10,10 @@ public final class Nonatomic implements ModInitializer {
     public void onInitialize() {
         RegistriesImpl.bootstrap();
 
+        com.landis.nonatomic.Nonatomic.registryInit();
+
         // Run our common setup.
         com.landis.nonatomic.Nonatomic.init();
 
-        com.landis.nonatomic.Nonatomic.registryInit();
     }
 }

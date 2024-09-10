@@ -1,16 +1,13 @@
 package com.landis.nonatomic.core;
 
-import com.landis.nonatomic.AttachedData;
-import com.mojang.serialization.Codec;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import org.jetbrains.annotations.Nullable;
 import org.lwjgl.system.NonnullDefault;
 
 import java.util.Collection;
@@ -80,4 +77,16 @@ public class OperatorEntity extends Mob {
     public boolean shouldRender(double d, double e, double f) {
         return super.shouldRender(d, e, f);
     }
+
+    @Override
+    public boolean removeWhenFarAway(double d) {
+        return false;
+    }
+
+    public ServerPlayer getOwner(){
+        return getOperator().getOpeHandler().owner();
+    }
+
+
+
 }

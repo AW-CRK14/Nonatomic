@@ -11,6 +11,7 @@ import com.landis.nonatomic.registry.OperatorInfoRegistry;
 import com.landis.nonatomic.registry.OperatorTypeRegistry;
 import com.mojang.serialization.DataResult;
 import dev.architectury.event.EventResult;
+import dev.architectury.event.events.common.ChunkEvent;
 import dev.architectury.event.events.common.EntityEvent;
 import dev.architectury.event.events.common.PlayerEvent;
 import dev.architectury.registry.client.level.entity.EntityRendererRegistry;
@@ -43,6 +44,8 @@ public final class Nonatomic {
             }
             return EventResult.pass();
         });
+
+
 
     }
 
