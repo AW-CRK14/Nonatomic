@@ -87,6 +87,11 @@ public class OperatorEntity extends Mob {
         return getOperator().getOpeHandler().owner();
     }
 
-
-
+    @Override
+    public void remove(RemovalReason removalReason) {
+        if(removalReason == RemovalReason.KILLED){
+            this.operator.onOperatorDead();
+        }
+        super.remove(removalReason);
+    }
 }
