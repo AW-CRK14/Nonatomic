@@ -179,6 +179,7 @@ public class Operator {
         if (entity != null && reason != null) {
             mergeDataFromEntity(false);
             if (reason != Entity.RemovalReason.KILLED) entity.remove(reason);
+            if (reason != Entity.RemovalReason.UNLOADED_WITH_PLAYER) entity.onRetreat();
             identifier.type.onRetreat(opeHandler.ownerOrUUID(), this);
             EventHooks.onRetreat(this, reason);
             setEntityNull();

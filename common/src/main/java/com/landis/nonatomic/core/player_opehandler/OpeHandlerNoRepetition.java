@@ -131,6 +131,18 @@ public class OpeHandlerNoRepetition implements OpeHandler {
     }
 
     @Override
+    public void refresh(ServerPlayer owner) {
+        if (owner.getUUID().equals(uuid)) {
+            this.owner = owner;
+        }
+    }
+
+    @Override
+    public void dead() {
+        this.owner = null;
+    }
+
+    @Override
     public List<Operator> deploying() {
         return deploying.stream().map(operators::get).toList();
     }

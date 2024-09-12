@@ -1,5 +1,6 @@
 package com.landis.nonatomic.core;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.server.level.ServerLevel;
@@ -12,6 +13,7 @@ import org.lwjgl.system.NonnullDefault;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Set;
 import java.util.UUID;
 
 public class OperatorEntity extends Mob {
@@ -65,11 +67,13 @@ public class OperatorEntity extends Mob {
         return super.saveWithoutId(compoundTag);
     }
 
-    public void opeInit(){}
+    public void opeInit() {
+    }
 
-    /**可以覆写此方法，此方法在允许数据合并时被调用。
-     * */
-    protected Collection<? extends OperatorInfo> requestExternalData(){
+    /**
+     * 可以覆写此方法，此方法在允许数据合并时被调用。
+     */
+    protected Collection<? extends OperatorInfo> requestExternalData() {
         return Collections.emptyList();
     }
 
@@ -83,15 +87,27 @@ public class OperatorEntity extends Mob {
         return false;
     }
 
-    public ServerPlayer getOwner(){
+    public ServerPlayer getOwner() {
         return getOperator().getOpeHandler().owner();
     }
 
     @Override
     public void remove(RemovalReason removalReason) {
-        if(removalReason == RemovalReason.KILLED){
+        if (removalReason == RemovalReason.KILLED) {
             this.operator.onOperatorDead();
         }
         super.remove(removalReason);
+    }
+
+    public void transDimension() {
+        BlockPos toPos = identifier.type().findPlaceForGenerate(getOwner(), null);
+        if (toPos == null) this.operator.retreat(true);
+        else
+            teleportTo((ServerLevel) getOwner().level(), toPos.getX(), toPos.getY(), toPos.getZ(), Set.of(), getYRot(), getXRot());
+    }
+
+    //可以在这里写一点撤退动画
+    public void onRetreat(){
+        this.remove(RemovalReason.UNLOADED_WITH_PLAYER);
     }
 }

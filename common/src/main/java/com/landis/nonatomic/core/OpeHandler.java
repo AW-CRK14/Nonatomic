@@ -15,9 +15,14 @@ public interface OpeHandler {
     Codec<? extends OpeHandler> codec();
 
     void init();
+
     void login(ServerPlayer owner);
 
     void logout();
+
+    void refresh(ServerPlayer owner);
+
+    void dead();
 
 
     @Nullable
@@ -25,9 +30,11 @@ public interface OpeHandler {
 
     UUID ownerUUId();
 
-    default Either<ServerPlayer, UUID> ownerOrUUID(){
+    default Either<ServerPlayer, UUID> ownerOrUUID() {
         return owner() == null ? Either.right(ownerUUId()) : Either.left(owner());
-    };
+    }
+
+    ;
 
     List<Operator> deploying();
 
@@ -58,9 +65,11 @@ public interface OpeHandler {
     int addDeploying(Operator ope, int exceptIndex, boolean simulate, boolean allowDispatch);
 
     @Deprecated
-    default int addDeploying(Operator ope, boolean simulate){
-        return addDeploying(ope,-1,simulate,true);
-    };
+    default int addDeploying(Operator ope, boolean simulate) {
+        return addDeploying(ope, -1, simulate, true);
+    }
+
+    ;
 
     //返回部署位置的索引 没有找到请返回-1 其它情况请根据需求自己设定
     @Deprecated
