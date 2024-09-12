@@ -10,6 +10,7 @@ import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
@@ -28,7 +29,9 @@ public class GameBusConsumer {
     }
 
 
-    public static void registerHandlerEventsArchLike(IEventBus bus, OpeHandler.GroupProvider handlerProvider) {
+    public static void registerHandlerEvents(OpeHandler.GroupProvider handlerProvider) {
+        IEventBus bus = NeoForge.EVENT_BUS;
+
         bus.addListener(PlayerEvent.PlayerLoggedInEvent.class, event -> {
             ServerPlayer player = (ServerPlayer) event.getEntity();
             handlerProvider.withPlayer(player).ifPresent(o -> o.login(player));
@@ -54,7 +57,7 @@ public class GameBusConsumer {
         //用于处理玩家的死亡
         bus.addListener(EventPriority.LOWEST, LivingDeathEvent.class, event -> {
             if (event.getEntity() instanceof ServerPlayer player) {
-                handlerProvider.withPlayer(player).map(OpeHandler::deploying).ifPresent(list -> list.forEach(o -> o.retreat(true)));
+                handlerProvider.withPlayer(player).map(OpeHandler::filteredDeploying).ifPresent(list -> list.stream().filter(Objects::nonNull).forEach(o -> o.retreat(true)));
             } else if (event.getEntity() instanceof OperatorEntity operator) {
                 operator.getOperator().onOperatorDead();
             }
@@ -63,7 +66,7 @@ public class GameBusConsumer {
         //玩家切换维度
         bus.addListener(PlayerEvent.PlayerChangedDimensionEvent.class, event -> handlerProvider.withPlayer((ServerPlayer) event.getEntity()).ifPresent(handler -> {
             handler.refresh((ServerPlayer) event.getEntity());
-            handler.deploying().stream()
+            handler.filteredDeploying().stream()
                     .map(Operator::getEntity)
                     .filter(Objects::nonNull)
                     .forEach(OperatorEntity::transDimension);

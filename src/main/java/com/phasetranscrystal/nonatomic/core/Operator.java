@@ -260,7 +260,7 @@ public class Operator {
 
     private void finalGenEntity(ServerPlayer player, BlockPos pos, boolean isRedeploy) {
         OperatorEntity created = this.getType().createEntityInstance(this, player);
-        created.setPos(pos.getX(), pos.getY(), pos.getZ());
+        created.setPos(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
         this.getType().onDeploy(created, player, this);
         EventHooks.onDeploy(player, this, created, isRedeploy);
         player.serverLevel().addFreshEntity(created);

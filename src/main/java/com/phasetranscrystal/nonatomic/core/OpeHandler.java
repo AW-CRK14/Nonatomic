@@ -6,10 +6,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 public interface OpeHandler {
 
@@ -36,8 +33,11 @@ public interface OpeHandler {
     }
 
 
-
     List<Operator> deploying();
+
+    default List<Operator> filteredDeploying() {
+        return deploying().stream().filter(Objects::nonNull).toList();
+    }
 
     List<Operator> deployingHistory();
 
@@ -82,8 +82,10 @@ public interface OpeHandler {
     interface GroupProvider {
         Optional<? extends OpeHandler> withUUID(UUID playerUUID, MinecraftServer server);
 
-        default Optional<? extends OpeHandler> withPlayer(ServerPlayer player){
-            return withUUID(player.getUUID(),player.getServer());
-        };
+        default Optional<? extends OpeHandler> withPlayer(ServerPlayer player) {
+            return withUUID(player.getUUID(), player.getServer());
+        }
+
+        ;
     }
 }

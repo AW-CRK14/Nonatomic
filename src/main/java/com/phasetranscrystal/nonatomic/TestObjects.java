@@ -9,7 +9,6 @@ import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
 import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
@@ -32,6 +31,7 @@ import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -45,6 +45,7 @@ import java.util.UUID;
 
 public class TestObjects {
     public static void initTest(IEventBus bus) {
+
         bus.addListener(EntityAttributeCreationEvent.class, event -> {
             event.put(EntityTypeRegistry.TEST.get(), Zombie.createAttributes().build());
         });
@@ -53,15 +54,12 @@ public class TestObjects {
             event.registerEntityRenderer(EntityTypeRegistry.TEST.get(), VillagerKnightRender::new);
         });
 
-        GameBusConsumer.registerHandlerEventsArchLike(bus, OpeProvider.INSTANCE);
+        GameBusConsumer.registerHandlerEvents(OpeProvider.INSTANCE);
 
         ItemRegistry.REGISTER.register(bus);
         EntityTypeRegistry.REGISTER.register(bus);
         OperatorTypeRegistry.REGISTER.register(bus);
-    }
-
-    public static void initTestRegistry() {
-
+        DataAttachmentRegistry.REGISTER.register(bus);
     }
 
 
@@ -101,7 +99,18 @@ public class TestObjects {
             @Override
             public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand interactionHand) {
                 if (!level.isClientSide()) {
-                    opeHandlerGroupProvider(level.getServer()).findOperator(OperatorTypeRegistry.TEST_OPERATOR.get(), (ServerPlayer) player).get().deploy(true, false, -1, null, Operator.STATUS_WORKING);
+                    opeHandlerGroupProvider(level.getServer()).findOperator(OperatorTypeRegistry.TEST_OPERATOR.get(), (ServerPlayer) player).get()
+                            .deploy(true, false, -1, null, Operator.STATUS_WORKING);
+                }
+                return super.use(level, player, interactionHand);
+            }
+        }
+
+        public static class I4 extends TestTool {
+            @Override
+            public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand interactionHand) {
+                if (!level.isClientSide()) {
+                    opeHandlerGroupProvider(level.getServer()).getDataFor((ServerPlayer) player).unlock(OperatorTypeRegistry.TEST_OPERATOR.get());
                 }
                 return super.use(level, player, interactionHand);
             }
@@ -153,6 +162,8 @@ public class TestObjects {
 
         public static final DeferredHolder<Item, TestTool.I1> I1 = REGISTER.register("i1", TestTool.I1::new);
         public static final DeferredHolder<Item, TestTool.I2> I2 = REGISTER.register("i2", TestTool.I2::new);
+        public static final DeferredHolder<Item, TestTool.I3> I3 = REGISTER.register("i3", TestTool.I3::new);
+        public static final DeferredHolder<Item, TestTool.I4> I4 = REGISTER.register("i4", TestTool.I4::new);
     }
 
     public static class DataAttachmentRegistry {

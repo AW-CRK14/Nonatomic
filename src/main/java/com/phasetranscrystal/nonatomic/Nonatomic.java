@@ -13,6 +13,7 @@ public final class Nonatomic {
 
     public Nonatomic(IEventBus modEventBus, ModContainer modContainer) {
         OPERATOR_TYPE_REGISTER.register(modEventBus);
+        TestObjects.initTest(modEventBus);
     }
 
     public static final DeferredRegister<OperatorType> OPERATOR_TYPE_REGISTER = DeferredRegister.create(Registries.Keys.OPERATOR_TYPE, Nonatomic.MOD_ID);

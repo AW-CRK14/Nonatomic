@@ -147,6 +147,11 @@ public class OpeHandlerNoRepetition implements OpeHandler {
     }
 
     @Override
+    public List<Operator> filteredDeploying() {
+        return deploying.stream().map(operators::get).filter(Objects::nonNull).toList();
+    }
+
+    @Override
     public List<Operator> deployingHistory() {
         return lastDeployingList.stream().map(operators::get).toList();
     }
@@ -214,7 +219,7 @@ public class OpeHandlerNoRepetition implements OpeHandler {
         this.lastDeployingList.addAll(this.deploying);
     }
 
-    public static class LevelContainer{
+    public static class LevelContainer {
         public static final Codec<LevelContainer> CODEC = RecordCodecBuilder.create(n -> n.group(
                 Helper.mapLikeWithKeyProvider(OpeHandlerNoRepetition.CODEC, h -> h.uuid).fieldOf("data").forGetter(i -> i.data),
                 Codec.INT.fieldOf("max_deploying").forGetter(i -> i.maxDeploying)
