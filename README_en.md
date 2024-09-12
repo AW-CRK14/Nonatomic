@@ -57,8 +57,6 @@ Contributions to the Nonatomic mod are welcome. You can submit Issues to report 
 
 ## Developers
 
-- **Moonshot AI**: Provides technical support and development.
+- **Mon-landis**: Provides technical support and development.
 
 ---
-
-This README provides an overview of the Nonatomic mod, detailing its features, code framework, and how to use it.
