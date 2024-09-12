@@ -12,31 +12,15 @@ out
 *.iws
 *.iml
 .idea
-.idea/modules
 
 # gradle
 build
 .gradle
-.gradle/8.4
 
 # other
 eclipse
 run
 runs
 run-data
-*.hprof
 
 repo
-/logs/
-
-/fabric/.gradle
-/fabric/build
-/fabric/run
-
-/neoforge/.gradle
-/neoforge/build
-/neoforge/run
-
-/common/.gradle
-/common/build
-/common/run
