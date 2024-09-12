@@ -10,8 +10,6 @@ public final class Nonatomic {
     public Nonatomic(IEventBus bus) {
         DataAttachmentRegistry.REGISTER.register(bus);
 
-
-
         // Run our common setup.
         com.landis.nonatomic.Nonatomic.init();
     }

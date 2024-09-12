@@ -5,6 +5,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
@@ -93,7 +94,7 @@ public class OperatorEntity extends Mob {
 
     @Override
     public void remove(RemovalReason removalReason) {
-        if (removalReason == RemovalReason.KILLED) {
+        if (removalReason == RemovalReason.KILLED && this.level() instanceof ServerLevel) {
             this.operator.onOperatorDead();
         }
         super.remove(removalReason);

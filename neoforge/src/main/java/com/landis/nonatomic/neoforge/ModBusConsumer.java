@@ -1,9 +1,6 @@
 package com.landis.nonatomic.neoforge;
 
 import com.landis.nonatomic.Nonatomic;
-import com.landis.nonatomic.registry.OperatorInfoRegistry;
-import com.landis.nonatomic.registry.OperatorTypeRegistry;
-import dev.architectury.registry.level.entity.EntityAttributeRegistry;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.registries.NewRegistryEvent;

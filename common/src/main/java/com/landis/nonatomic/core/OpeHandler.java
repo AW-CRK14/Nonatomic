@@ -2,6 +2,7 @@ package com.landis.nonatomic.core;
 
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
 
@@ -77,4 +78,12 @@ public interface OpeHandler {
 
 
     Optional<Operator> findOperator(Operator.Identifier identifier);
+
+    interface GroupProvider {
+        Optional<? extends OpeHandler> withUUID(UUID playerUUID, MinecraftServer server);
+
+        default Optional<? extends OpeHandler> withPlayer(ServerPlayer player){
+            return withUUID(player.getUUID(),player.getServer());
+        };
+    }
 }

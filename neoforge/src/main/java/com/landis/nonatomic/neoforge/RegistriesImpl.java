@@ -1,6 +1,7 @@
 package com.landis.nonatomic.neoforge;
 
 import com.landis.nonatomic.Registries;
+import com.landis.nonatomic.TestObjects;
 import com.landis.nonatomic.core.OperatorInfo;
 import com.landis.nonatomic.core.OperatorType;
 import com.mojang.serialization.Codec;

@@ -2,6 +2,7 @@ package com.landis.nonatomic.core.player_opehandler;
 
 import com.landis.nonatomic.Helper;
 import com.landis.nonatomic.Registries;
+import com.landis.nonatomic.TestObjects;
 import com.landis.nonatomic.core.OpeHandler;
 import com.landis.nonatomic.core.Operator;
 import com.landis.nonatomic.core.OperatorEntity;
@@ -11,6 +12,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.system.NonnullDefault;
@@ -215,7 +217,7 @@ public class OpeHandlerNoRepetition implements OpeHandler {
         this.lastDeployingList.addAll(this.deploying);
     }
 
-    public static class LevelContainer {
+    public static class LevelContainer{
         public static final Codec<LevelContainer> CODEC = RecordCodecBuilder.create(n -> n.group(
                 Helper.mapLikeWithKeyProvider(OpeHandlerNoRepetition.CODEC, h -> h.uuid).fieldOf("data").forGetter(i -> i.data),
                 Codec.INT.fieldOf("max_deploying").forGetter(i -> i.maxDeploying)
@@ -250,17 +252,6 @@ public class OpeHandlerNoRepetition implements OpeHandler {
 
         public OpeHandlerNoRepetition getDataFor(UUID player) {
             return data.get(player);
-        }
-
-
-        public boolean initOperatorEntity(OperatorEntity entity) {
-            if (entity.getIdentifier() != null && entity.getBelongingUUID() != null) {
-                OpeHandlerNoRepetition handler = data.get(entity.getBelongingUUID());
-                if (handler == null) return false;
-                Optional<Operator> operator = handler.findOperator(entity.getIdentifier());
-                return operator.map(value -> value.entityCreated(entity)).orElse(false);
-            }
-            return false;
         }
 
         public boolean deploy(OperatorType type, ServerPlayer player, BlockPos expectPos) {

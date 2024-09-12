@@ -3,82 +3,76 @@ package com.landis.nonatomic;
 import com.landis.nonatomic.core.OpeHandler;
 import com.landis.nonatomic.core.Operator;
 import com.landis.nonatomic.core.OperatorEntity;
-import com.landis.nonatomic.core.OperatorType;
-import com.landis.nonatomic.core.player_opehandler.OpeHandlerNoRepetition;
-import com.landis.nonatomic.misc.EmptyEntityRenderer;
-import com.landis.nonatomic.misc.VillagerKnightRender;
-import com.landis.nonatomic.registry.EntityTypeRegistry;
-import com.landis.nonatomic.registry.ItemRegistry;
-import com.landis.nonatomic.registry.OperatorInfoRegistry;
 import com.landis.nonatomic.registry.OperatorTypeRegistry;
-import com.mojang.serialization.DataResult;
 import dev.architectury.event.EventResult;
-import dev.architectury.event.events.common.ChunkEvent;
 import dev.architectury.event.events.common.EntityEvent;
 import dev.architectury.event.events.common.PlayerEvent;
-import dev.architectury.registry.client.level.entity.EntityRendererRegistry;
-import dev.architectury.registry.level.entity.EntityAttributeRegistry;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.Objects;
-import java.util.function.Predicate;
 
 public final class Nonatomic {
     public static final String MOD_ID = "nonatomic";
 
     public static void init() {
+        //阻止干员与玩家之间的伤害
+        EntityEvent.LIVING_HURT.register((entity, source, amount) ->
+                (entity instanceof OperatorEntity && source.getEntity() instanceof Player) || (entity instanceof Player && source.getEntity() instanceof OperatorEntity)
+                        ? EventResult.interruptFalse() : EventResult.pass()
+        );
+        TestObjects.initTest();
+    }
 
-        PlayerEvent.PLAYER_JOIN.register(serverPlayer -> AttachedData.opeHandlerGroupProvider(serverPlayer.getServer()).login(serverPlayer));
+    public static void registryInit() {
+        OperatorTypeRegistry.REGISTER.register();
+        TestObjects.initTestRegistry();
+    }
 
-        PlayerEvent.PLAYER_QUIT.register(serverPlayer -> AttachedData.opeHandlerGroupProvider(serverPlayer.getServer()).logout(serverPlayer));
+    /**
+     * 自动注册一组干员系统处理事件。由于无法设置优先级，这在模组兼容上可能产生不可预料的bug。<p>
+     */
+    public static void registerHandlerEventsArchLike(OpeHandler.GroupProvider handlerProvider) {
 
-        EntityAttributeRegistry.register(EntityTypeRegistry.TEST, Zombie::createAttributes);
+        PlayerEvent.PLAYER_JOIN.register(serverPlayer -> handlerProvider.withPlayer(serverPlayer).ifPresent(o -> o.login(serverPlayer)));
 
-        EntityRendererRegistry.register(EntityTypeRegistry.TEST, VillagerKnightRender::new);
+        PlayerEvent.PLAYER_QUIT.register(serverPlayer -> handlerProvider.withPlayer(serverPlayer).ifPresent(OpeHandler::logout));
 
+        //用于处理干员的部署
         EntityEvent.ADD.register((entity, world) -> {
             if (world instanceof ServerLevel serverLevel && entity instanceof OperatorEntity opeEntity) {
-
-                if (!AttachedData.opeHandlerGroupProvider(serverLevel.getServer()).initOperatorEntity(opeEntity)) {
-                    return EventResult.interruptFalse();
+                if (opeEntity.getIdentifier() != null && opeEntity.getBelongingUUID() != null &&
+                        handlerProvider.withUUID(opeEntity.getBelongingUUID(), serverLevel.getServer())//寻找玩家对应的干员容器
+                                .flatMap(handler -> handler.findOperator(opeEntity.getIdentifier()))//根据特征找到对应干员
+                                .map(ope -> ope.entityCreated(opeEntity))//请求创建实体
+                                .orElse(false)) {
+                    opeEntity.opeInit();//初始化数据填充完成的干员实体
+                    return EventResult.interruptTrue();
                 }
-                opeEntity.opeInit();
-                return EventResult.interruptTrue();
+                return EventResult.interruptFalse();
             }
             return EventResult.pass();
         });
 
-        EntityEvent.LIVING_HURT.register((entity, source, amount) -> (entity instanceof OperatorEntity && source.getEntity() instanceof Player) || (entity instanceof Player player && source.getEntity() instanceof OperatorEntity) ? EventResult.interruptFalse() : EventResult.pass());
-
+        //用于处理玩家的死亡  干员的死亡在干员实体自己里面
         EntityEvent.LIVING_DEATH.register((entity, source) -> {
             if (entity instanceof ServerPlayer player) {
-                OpeHandler handler = AttachedData.opeHandlerGroupProvider(player.getServer()).getDataFor(player);
-                handler.deploying().forEach(o -> o.retreat(true));
+                handlerProvider.withPlayer(player).map(OpeHandler::deploying).ifPresent(list -> list.forEach(o -> o.retreat(true)));
             }
             return EventResult.pass();
         });
 
-        PlayerEvent.CHANGE_DIMENSION.register((player, oldLevel, newLevel) -> {
-            OpeHandler handler = AttachedData.opeHandlerGroupProvider(player.getServer()).getDataFor(player);
+        //玩家切换维度
+        PlayerEvent.CHANGE_DIMENSION.register((player, oldLevel, newLevel) -> handlerProvider.withPlayer(player).ifPresent(handler -> {
             handler.refresh(player);
             handler.deploying().stream()
                     .map(Operator::getEntity)
                     .filter(Objects::nonNull)
                     .forEach(OperatorEntity::transDimension);
-        });
+        }));
 
-        PlayerEvent.PLAYER_RESPAWN.register((player, source) -> AttachedData.opeHandlerGroupProvider(player.getServer()).getDataFor(player).refresh(player));
-
-    }
-
-    public static void registryInit() {
-        ItemRegistry.REGISTER.register();
-        EntityTypeRegistry.REGISTER.register();
-        OperatorTypeRegistry.REGISTER.register();
-        OperatorInfoRegistry.REGISTER.register();
+        //玩家重生
+        PlayerEvent.PLAYER_RESPAWN.register((player, source) -> handlerProvider.withPlayer(player).ifPresent(handler -> handler.refresh(player)));
     }
 }

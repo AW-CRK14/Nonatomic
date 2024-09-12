@@ -1,16 +1,10 @@
 package com.landis.nonatomic.core;
 
 import com.landis.nonatomic.Registries;
-import com.landis.nonatomic.core.info.IAttributesProvider;
+import com.landis.nonatomic.TestObjects;
 import com.landis.nonatomic.core.info.IBelongingOperatorProvider;
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier;
-import org.jetbrains.annotations.Nullable;
 import org.lwjgl.system.NonnullDefault;
-
-import java.util.*;
 
 public abstract class OperatorInfo implements IBelongingOperatorProvider {
     public static final Codec<OperatorInfo> CODEC = Registries.getOperatorInfoRegistry().byNameCodec().dispatch(OperatorInfo::codec, i -> i);

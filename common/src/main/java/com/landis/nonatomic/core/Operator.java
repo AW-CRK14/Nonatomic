@@ -3,6 +3,7 @@ package com.landis.nonatomic.core;
 import com.landis.nonatomic.EventHooks;
 import com.landis.nonatomic.Nonatomic;
 import com.landis.nonatomic.Registries;
+import com.landis.nonatomic.TestObjects;
 import com.landis.nonatomic.core.info.IAttributesProvider;
 import com.landis.nonatomic.misc.LevelAndPosRecorder;
 import com.mojang.serialization.Codec;
