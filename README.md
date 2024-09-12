@@ -1,7 +1,7 @@
 瓦解核心：非原子单位 | Brea:Nonatomic
 =======
 
-[here to read English version](README_en.md)
+[click here to read English version](README_en.md)
 
 ---
 
