@@ -5,7 +5,7 @@
 
 ---
 
-## 概述
+# 概述
 
 Nonatomic Lib，允许玩家在游戏中部署干员。干员与干员实体进行对应，玩家可以部署它们来执行各种任务。
 
@@ -17,7 +17,7 @@ Nonatomic Lib，允许玩家在游戏中部署干员。干员与干员实体进�
 - **玩家行为处理**：玩家的特殊行为影响实体状态以保证功能的正常，包括登录、登出、传送等。
 - **事件监听**：模组监听游戏事件，如玩家登录、退出，以及干员的部署和回收，以提高功能的灵活性。
 
-## 代码框架
+# 代码框架
 
 在最理想的情况下，我们可以直接将数据绑定在维度上进行统一管理——这可以保证玩家不在线时干员数据引用的正常，也可以避免玩家数据过多导致的崩溃。
 
@@ -39,13 +39,16 @@ Nonatomic Lib，允许玩家在游戏中部署干员。干员与干员实体进�
 您可以参考[`TestObjects`](src/main/java/com/phasetranscrystal/nonatomic/TestObjects.java)类来查看我们的测试代码，
 在mod主类中调用`TestObjects#initTest`方法即可生效——不要忘记在之后删掉。
 
+您可以在[`EventHooks`](src/main/java/com/phasetranscrystal/nonatomic/EventHooks.java)中看到我们提供的事件，
+事件的类中均有关于其用途的javadoc内容。
+
 另外，您也可以参考我们的[测试内容表](TEST_LIST.md)来查看与校对正确配置下可以自动实现的功能。
 
-## 贡献
+# 贡献
 
 欢迎对Nonatomic模组进行贡献。你可以提交Issues来报告问题，或者Fork本项目来提交你的改进。
 
-## 开发者
+# 开发者
 
 - **Mon-landis**：提供技术支持和开发。
 

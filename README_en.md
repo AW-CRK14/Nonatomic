@@ -1,61 +1,71 @@
-
 瓦解核心：非原子单位 | Brea:Nonatomic
 =======
 
-[点击阅读中文版本](README.md) 
+[click here to read Chinese version](README.md)
 
-# Nonatomic Mod
+---
 
 ## Overview
-Nonatomic lib, introducing a new gameplay mechanic: the Operator system. Operators are special entities that players can control to perform various tasks. They have unique attributes and behaviors.
 
-## Features
-- **Operator System**: Players can unlock, deploy, and retrieve operators.
-- **Operator Types**: A variety of operator types, each with specific attributes and behaviors.
-- **Operator Interaction**: Players can interact with operators, including logging in, logging out, and refreshing status.
-- **Operator Attributes**: Operators have customizable attributes that affect their performance in the game.
-- **Event Listening**: The mod listens to game events such as player login, logout, and operator deployment and retrieval.
+The Nonatomic Lib allows players to deploy Operators in the game. Operators correspond to Operator entities, and players
+can deploy them to perform various tasks.
+
+This library provides a range of commonly used features for the entire Operator system:
+
+- **Operator Customization**: Allows the customization of various types of Operators, each with unique attributes and
+  behaviors.
+- **Operator Information Storage**: In addition to customizable attributes, Operators have the capability to store
+  mutable and persistent information.
+- **Entity and Information Communication**: Operator entities and their information reference each other, with
+  appropriate clearing and refreshing to ensure synchronization and proper status.
+- **Player Behavior Handling**: Special player behaviors affect entity states to ensure proper functionality, including
+  login, logout, teleportation, etc.
+- **Event Listening**: The mod listens to game events, such as player login, logout, and the deployment and retrieval of
+  Operators, to enhance flexibility.
 
 ## Code Framework
 
-### Main Classes and Interfaces
+Ideally, we can directly bind data to dimensions for unified management—this ensures that Operator data references are
+maintained when players are offline and avoids crashes due to excessive player data.
 
-- **Operator**: Represents an operator, containing attributes, status, and behaviors.
-- **OperatorType**: Defines the type of operator, with methods to create instances of operators.
-- **OpeHandler**: Interface for managing operators, including deployment, retrieval, and attribute modification.
-- **OperatorEntity**: The in-game entity representation of an operator.
-- **OpeHandlerNoRepetition**: Concrete class implementing `OpeHandler`, managing player operator deployment.
-- **IAttributesProvider**: Interface for providing operator attributes.
+The data structure is roughly as follows, from broadest to most specific:
 
-### Core Functionality Implementation
+1. World Data Storage. We do not provide a standard for this level,
+   but we offer
+   the [GroupProvider interface (see at the bottom)](src/main/java/com/phasetranscrystal/nonatomic/core/OpeHandler.java)
+   for convenient handling of player and entity events.
+2. Player Operator Data ([`OpeHandler`](src/main/java/com/phasetranscrystal/nonatomic/core/OpeHandler.java))
+   Stores data on Operators owned by a player and a list of deployed Operators. Since a player might have multiple
+   Operator data under different mod implementations, you need to configure the appropriate `ContainerId`
+   to ensure the entity correctly captures the corresponding data upon loading. For data capturing, refer
+   to [`FindOperatorEvent`](src/main/java/com/phasetranscrystal/nonatomic/event/FindOperatorEvent.java).
+   If the `GroupProvider` mentioned in the first step is implemented and registered, related events can be automatically
+   handled.
+3. Operator ([`Operator`](src/main/java/com/phasetranscrystal/nonatomic/core/Operator.java))
+   Is the unit that can be directly captured and referenced by the Operator entity and is responsible for storing
+   Operator information. This includes methods related to basic Operator behaviors such as deployment, withdrawal,
+   legality checks, as well as basic information such as Operator type, status, last recorded position, etc. The
+   referenced Operator entities will not be null as long as the entity exists and is loaded.
+4. Operator Data ([`OperatorInfo`](src/main/java/com/phasetranscrystal/nonatomic/core/OperatorInfo.java))
+   Responsible for storing additional information about Operators. If needed, Operator entities can store similar types
+   of information and request merging at appropriate times to implement temporary information functionality.
 
-- **Operator Creation and Initialization**: Create operator instances through `OperatorType` and manage them in `OpeHandlerNoRepetition`.
-- **Operator Deployment and Retrieval**: Deploy and retrieve operators through implementations of `OpeHandler`, ensuring synchronization of operator status.
-- **Attribute Management**: Attach and remove attribute modifiers of operators through the `IAttributesProvider` interface.
-- **Event Listening**: Manage operator behavior in response to game events through the `GameBusConsumer` class.
+You can refer to the [`TestObjects`](src/main/java/com/phasetranscrystal/nonatomic/TestObjects.java) class to see our
+test code.
+Calling the `TestObjects#initTest` method in the mod's main class will activate it—don't forget to remove it afterward.
 
-### Events and Listening
+You can also view the provided events in [`EventHooks`](src/main/java/com/phasetranscrystal/nonatomic/EventHooks.java).
+Each event class contains javadoc content about its usage.
 
-- **Player Events**: Listen to player login, logout, death, and dimension change events.
-- **Operator Events**: Handle operator deployment, retrieval, and damage events.
-
-### Registration and Management
-
-- **Registries**: Manages the registry of operator information and types.
-- **ModBusConsumer**: Registers operator information and types on the mod event bus.
-
-## Installation and Usage
-
-1. **Install Forge**: Ensure you have the correct version of Forge installed for Minecraft.
-2. **Download the Mod**: Download the Nonatomic mod from the release page.
-3. **Place the Mod**: Put the downloaded mod file into the `mods` folder.
-4. **In-Game Operations**: Unlock and deploy operators through specific in-game mechanics.
+Additionally, you can refer to our [Test Content Table](TEST_LIST.md) to see and verify the features that can be
+automatically implemented under correct configurations.
 
 ## Contributing
 
-Contributions to the Nonatomic mod are welcome. You can submit Issues to report problems or Fork this project to contribute your improvements.
+We welcome contributions to the Nonatomic mod. You can submit Issues to report problems or Fork this project to submit
+your improvements.
 
-## Developers
+## Developer
 
 - **Mon-landis**: Provides technical support and development.
 
