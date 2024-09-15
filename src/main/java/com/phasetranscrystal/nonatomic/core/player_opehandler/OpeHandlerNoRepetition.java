@@ -90,7 +90,7 @@ public class OpeHandlerNoRepetition implements OpeHandler {
 
     @Override
     public ResourceLocation containerId() {
-        return null;
+        return containerId;
     }
 
     public int maxDeployingCount() {

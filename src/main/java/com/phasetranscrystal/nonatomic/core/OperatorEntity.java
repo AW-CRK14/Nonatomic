@@ -67,16 +67,16 @@ public class OperatorEntity extends Mob {
     @Override
     public void load(CompoundTag compoundTag) {
         super.load(compoundTag);
-        containerID = compoundTag.contains("ope_container_id") ? ResourceLocation.tryParse(compoundTag.getString("container_id")) : null;
-        belonging = compoundTag.contains("ope_belonging") ? compoundTag.getUUID("ope_belonging") : null;
-        identifier = Operator.Identifier.CODEC.parse(NbtOps.INSTANCE, compoundTag.get("ope_identifier")).mapOrElse(i -> i, e -> null);
+        containerID = compoundTag.contains("opeContainerId") ? ResourceLocation.tryParse(compoundTag.getString("opeContainerId")) : null;
+        belonging = compoundTag.contains("opeBelonging") ? compoundTag.getUUID("opeBelonging") : null;
+        identifier = Operator.Identifier.CODEC.parse(NbtOps.INSTANCE, compoundTag.get("opeIdentifier")).mapOrElse(i -> i, e -> null);
     }
 
     @Override
     public CompoundTag saveWithoutId(CompoundTag compoundTag) {
-        compoundTag.putString("ope_container_id", containerID.toString());
-        compoundTag.putUUID("ope_belonging", belonging);
-        compoundTag.put("ope_identifier", Operator.Identifier.CODEC.encode(identifier, NbtOps.INSTANCE, new CompoundTag()).getOrThrow());
+        compoundTag.putString("opeContainerId", containerID.toString());
+        compoundTag.putUUID("opeBelonging", belonging);
+        compoundTag.put("opeIdentifier", Operator.Identifier.CODEC.encode(identifier, NbtOps.INSTANCE, new CompoundTag()).getOrThrow());
 
         return super.saveWithoutId(compoundTag);
     }

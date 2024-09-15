@@ -248,15 +248,15 @@ public class Operator {
 
         if (!identifier.type.allowDeploy(player, this)) return -4;
 
-        boolean deployPlaceFlag = EventHooks.ifTakeDeployPlace(this, expectStatus);
         int indexFlag = -1;
 
         if (focus) {
             if (entityFinderInfo.isPresent()) indexFlag = retreat(true, RetreatReason.FOCUS);
-            else if (deployPlaceFlag) indexFlag = opeHandler.onRetreat(this);
+            else indexFlag = opeHandler.onRetreat(this);
         }
 
-        if (deployPlaceFlag) {
+        boolean deployFlag = EventHooks.ifTakeDeployPlace(this, expectStatus);
+        if (deployFlag) {
             if (indexFlag < 0) {
                 indexFlag = opeHandler.addDeploying(this, expectIndex, true, true);
             }
@@ -270,7 +270,7 @@ public class Operator {
 
         finalGenEntity(player, pos, false);
 
-        return deployPlaceFlag ? opeHandler.addDeploying(this, indexFlag, false, true) : -1;
+        return deployFlag ? opeHandler.addDeploying(this, indexFlag, false, true) : -1;
     }
 
     private void finalGenEntity(ServerPlayer player, BlockPos pos, boolean isRedeploy) {
