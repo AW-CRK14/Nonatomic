@@ -54,7 +54,7 @@ public class TestObjects {
             event.registerEntityRenderer(EntityTypeRegistry.TEST.get(), VillagerKnightRender::new);
         });
 
-        GameBusConsumer.registerHandlerEvents(OpeProvider.INSTANCE);
+        GameBusConsumer.registerHandlerEvents(server -> server.overworld().getData(DataAttachmentRegistry.OPE_HANDLER.get()));
 
         ItemRegistry.REGISTER.register(bus);
         EntityTypeRegistry.REGISTER.register(bus);
@@ -89,7 +89,7 @@ public class TestObjects {
             @Override
             public InteractionResult interactLivingEntity(ItemStack itemStack, Player player, LivingEntity livingEntity, InteractionHand interactionHand) {
                 if (player instanceof ServerPlayer p && livingEntity instanceof OperatorEntity ope) {
-                    opeHandlerGroupProvider(p.getServer()).findOperator(OperatorTypeRegistry.TEST_OPERATOR.get(), (ServerPlayer) player).get().retreat(false);
+                    opeHandlerGroupProvider(p.getServer()).findOperator(OperatorTypeRegistry.TEST_OPERATOR.get(), (ServerPlayer) player).get().retreat(false, Operator.RetreatReason.MISC);
                 }
                 return super.interactLivingEntity(itemStack, player, livingEntity, interactionHand);
             }
@@ -110,27 +110,10 @@ public class TestObjects {
             @Override
             public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand interactionHand) {
                 if (!level.isClientSide()) {
-                    opeHandlerGroupProvider(level.getServer()).getDataFor((ServerPlayer) player).unlock(OperatorTypeRegistry.TEST_OPERATOR.get());
+                    opeHandlerGroupProvider(level.getServer()).withPlayer((ServerPlayer) player).get().unlock(OperatorTypeRegistry.TEST_OPERATOR.get());
                 }
                 return super.use(level, player, interactionHand);
             }
-        }
-    }
-
-    public static class OpeProvider implements OpeHandler.GroupProvider {
-        public static final OpeProvider INSTANCE = new OpeProvider();
-
-        private OpeProvider() {
-        }
-
-        @Override
-        public Optional<OpeHandler> withUUID(UUID playerUUID, MinecraftServer server) {
-            return Optional.ofNullable(opeHandlerGroupProvider(server).getDataFor(playerUUID));
-        }
-
-        @Override
-        public Optional<OpeHandler> withPlayer(ServerPlayer player) {
-            return Optional.ofNullable(opeHandlerGroupProvider(player.getServer()).getDataFor(player));
         }
     }
 
@@ -171,7 +154,11 @@ public class TestObjects {
         public static final DeferredRegister<AttachmentType<?>> REGISTER = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Nonatomic.MOD_ID);
 
         public static final DeferredHolder<AttachmentType<?>, AttachmentType<OpeHandlerNoRepetition.LevelContainer>> OPE_HANDLER =
-                REGISTER.register("ope_handler", () -> AttachmentType.builder(() -> new OpeHandlerNoRepetition.LevelContainer(4)).serialize(OpeHandlerNoRepetition.LevelContainer.CODEC).build());
+                REGISTER.register("ope_handler", () -> AttachmentType.builder(
+                                () -> new OpeHandlerNoRepetition.LevelContainer(4, ResourceLocation.fromNamespaceAndPath(Nonatomic.MOD_ID, "test")))
+                        .serialize(OpeHandlerNoRepetition.LevelContainer.CODEC)
+                        .build()
+                );
     }
 
     public static class VillagerKnightModel<T extends OperatorEntity> extends HumanoidModel<T> {

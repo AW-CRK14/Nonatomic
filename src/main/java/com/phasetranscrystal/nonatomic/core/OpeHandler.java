@@ -2,11 +2,13 @@ package com.phasetranscrystal.nonatomic.core;
 
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.function.Function;
 
 public interface OpeHandler {
 
@@ -20,13 +22,13 @@ public interface OpeHandler {
 
     void refresh(ServerPlayer owner);
 
-    void dead();
-
 
     @Nullable
     ServerPlayer owner();
 
     UUID ownerUUId();
+
+    ResourceLocation containerId();
 
     default Either<ServerPlayer, UUID> ownerOrUUID() {
         return owner() == null ? Either.right(ownerUUId()) : Either.left(owner());
@@ -70,8 +72,6 @@ public interface OpeHandler {
         return addDeploying(ope, -1, simulate, true);
     }
 
-    ;
-
     //返回部署位置的索引 没有找到请返回-1 其它情况请根据需求自己设定
     @Deprecated
     int onRetreat(Operator operator);
@@ -79,13 +79,16 @@ public interface OpeHandler {
 
     Optional<Operator> findOperator(Operator.Identifier identifier);
 
+    /**
+     * 组提供器用于根据玩家与世界获取对应的干员处理器(OpeHandler)。被用于相关事件的一键监听。
+     * @see com.phasetranscrystal.nonatomic.GameBusConsumer#registerHandlerEvents(Function)  使用方法快捷向对应世界监听器进行注册
+     * @see com.phasetranscrystal.nonatomic.core.player_opehandler.OpeHandlerNoRepetition.LevelContainer 一个实现案例
+     */
     interface GroupProvider {
-        Optional<? extends OpeHandler> withUUID(UUID playerUUID, MinecraftServer server);
+        Optional<? extends OpeHandler> withUUID(UUID playerUUID);
 
         default Optional<? extends OpeHandler> withPlayer(ServerPlayer player) {
-            return withUUID(player.getUUID(), player.getServer());
+            return withUUID(player.getUUID());
         }
-
-        ;
     }
 }

@@ -14,14 +14,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.system.NonnullDefault;
 
 import java.util.*;
-import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * <p>干员</p>
@@ -32,7 +30,6 @@ import java.util.function.Function;
  * <p>在生物实体被创建时，会尝试与其对应的干员实例建立联系，验证合法性，引用数据与同步最后位置。</p>
  */
 public class Operator {
-    Logger LOGGER = LogManager.getLogger("BreaNonatomic:Operator");
     //芝士Codec
     public static final Codec<Operator> CODEC = RecordCodecBuilder.create(n -> n.group(
             Identifier.CODEC.fieldOf("identifier").forGetter(i -> i.identifier),
@@ -108,20 +105,18 @@ public class Operator {
         if (redeployFlag) {
             redeployFlag = false;
             int result = redeploy();
-            if (result != 0) EventHooks.redeployFailed(opeHandler.owner(), this, result);
+            if (result != 0) EventHooks.deployFailed(this, opeHandler.owner(), result);
         }
 
         infos.values().forEach(OperatorInfo::login);
     }
 
     public void logout() {
-        if (status.equals(STATUS_TRACKING)) {
-            if (entity == null) disconnectWithEntity();
-            else {
-                disconnectWithEntity(Entity.RemovalReason.UNLOADED_WITH_PLAYER, STATUS_TRACKING);
-                if (EventHooks.allowOperatorRedeployWhenLogin(opeHandler.owner(), this, entity))
-                    this.redeployFlag = true;
-            }
+        boolean flag = EventHooks.onPlayerLogoutOpe(opeHandler.owner(), this, entity);
+
+        if (this.status.equals(STATUS_TRACKING)) {
+            disconnectWithEntity(Entity.RemovalReason.UNLOADED_WITH_PLAYER, STATUS_TRACKING, RetreatReason.UNLOADED_WITH_PLAYER);
+            this.redeployFlag = flag;
         }
         infos.values().forEach(OperatorInfo::logout);
     }
@@ -140,8 +135,7 @@ public class Operator {
     //生物实体的数据同步 对于干员实体，也使用这个给自己同步即可
     //记得创建生物实体前先给operator设status
     //原则上不缓存attribute变更
-    public boolean entityCreated(OperatorEntity entity) {
-        boolean isNew = entity.opeNewCreatedFlag;
+    public boolean entityCreated(OperatorEntity entity, boolean isNew) {
         if (!checkEntityLegality(entity, isNew)) return false;
 
         entity.setOperator(this);
@@ -159,30 +153,43 @@ public class Operator {
 
 
     //合并实体信息
-    public void mergeDataFromEntity(boolean followingLogout, @Nullable MapCodec<? extends OperatorInfo>... types) {
+    //不安全 请使用下面的合集版本 但是方便
+    public void mergeDataFromEntity(RetreatReason reason, MapCodec<? extends OperatorInfo>... types) {
+        mergeDataFromEntity(reason, Set.of(types));
+    }
+
+    public void mergeDataFromEntity(RetreatReason reason, Collection<MapCodec<? extends OperatorInfo>> types) {
         if (entity == null) return;
-        Function<MapCodec<? extends OperatorInfo>, Boolean> permission = EventHooks.allowDataMerge(followingLogout, entity, this, types).map(b -> codec -> b, c -> codec -> codec == c);
-        entity.requestExternalData().stream().filter(info -> permission.apply(info.codec())).forEach(i -> {
-            MapCodec<? extends OperatorInfo> codec = i.codec();
-            if (infos.containsKey(codec))
-                infos.get(codec).merge(i);
-            else
-                infos.put(codec, i.copy());
+        entity.getExternalOpeInfo().stream().filter(i -> types.isEmpty() || types.contains(i.codec())).forEach(info -> {
+            switch (EventHooks.allowDataMerge(reason, entity, this, info)) {
+                case 1 -> {
+                    var codec = info.codec();
+                    if (infos.containsKey(codec)) {
+                        infos.get(codec).merge(info);
+                    } else {
+                        infos.put(codec, info);
+                    }
+                    entity.onExternalOpeInfoRemove(info, true);
+                }
+                case -1 -> entity.onExternalOpeInfoRemove(info, false);
+            }
         });
     }
 
     public void disconnectWithEntity() {
-        disconnectWithEntity(Entity.RemovalReason.DISCARDED, STATUS_REST);
+        disconnectWithEntity(Entity.RemovalReason.DISCARDED, STATUS_REST, RetreatReason.FOCUS);
     }
 
     //清除实体信息或格式化状态信息
-    public void disconnectWithEntity(Entity.RemovalReason reason, ResourceLocation status) {
-        if (entity != null && reason != null) {
-            mergeDataFromEntity(false);
-            if (reason != Entity.RemovalReason.KILLED) entity.remove(reason);
-            if (reason != Entity.RemovalReason.UNLOADED_WITH_PLAYER) entity.onRetreat();
+    public void disconnectWithEntity(Entity.RemovalReason reason, ResourceLocation status, RetreatReason retreatReason) {
+        if (entityFinderInfo.isPresent()) {
             identifier.type.onRetreat(opeHandler.ownerOrUUID(), this);
-            EventHooks.onRetreat(this, reason);
+            EventHooks.onRetreat(this, retreatReason);
+        }
+        if (entity != null && reason != null) {
+            mergeDataFromEntity(retreatReason);
+            if (reason == Entity.RemovalReason.UNLOADED_WITH_PLAYER) entity.onRetreat();
+            else if (reason != Entity.RemovalReason.KILLED) entity.remove(reason);
             setEntityNull();
         }
         entityFinderInfo = Optional.empty();
@@ -194,10 +201,10 @@ public class Operator {
 
     private int redeploy() {
         ServerPlayer player = opeHandler.owner();
-        if (!identifier.type.allowDeploy(player, this) || !EventHooks.allowOperatorDeploy(player, this)) return 1;
+        if (!identifier.type.allowDeploy(player, this)) return -4;
 
         BlockPos pos = identifier.type.findPlaceForGenerate(player, null);
-        if (pos == null) return 2;
+        if (pos == null) return -6;
 
         finalGenEntity(player, pos, true);
 
@@ -216,11 +223,19 @@ public class Operator {
      * @param markWhenNoPlayer 是否在玩家不存在时标记部署
      * @param expectPos        预期的部署位置
      * @param expectStatus
-     * @return <p> 返回的状态码 <p> >0 -> 完成部署的位置索引 -256 -> 标记部署  -1 -> 玩家不存在  -2 -> 实体已存在  -3 -> 状态不合法
-     * -4 -> 部署被实体类型或事件否决  -5 -> 部署区无空位  -6 -> 未找到合理的部署位置</p>
+     * @return <p> 返回的状态码 <p> >0 -> 完成部署的位置索引 INT_MAX -> 标记部署</p>
+     * @see com.phasetranscrystal.nonatomic.event.OperatorEvent.DeployFailed OperatorEvent.DeployFailed Event
      */
     @SuppressWarnings("all")
     public int deploy(boolean focus, boolean markWhenNoPlayer, int expectIndex, @Nullable BlockPos expectPos, ResourceLocation expectStatus) {
+        int result = deployWrapped(focus, markWhenNoPlayer, expectIndex, expectPos, expectStatus);
+        if (result < 0) {
+            EventHooks.deployFailed(this, opeHandler.owner(), result);
+        }
+        return result;
+    }
+
+    private int deployWrapped(boolean focus, boolean markWhenNoPlayer, int expectIndex, @Nullable BlockPos expectPos, ResourceLocation expectStatus) {
 
         if (entity != null && !focus) return -2;
         if (!status.equals(STATUS_READY) && !focus) return -3;
@@ -231,13 +246,13 @@ public class Operator {
             return markWhenNoPlayer ? -256 : -1;
         }
 
-        if (!identifier.type.allowDeploy(player, this) || !EventHooks.allowOperatorDeploy(player, this)) return -4;
+        if (!identifier.type.allowDeploy(player, this)) return -4;
 
         boolean deployPlaceFlag = EventHooks.ifTakeDeployPlace(this, expectStatus);
         int indexFlag = -1;
 
         if (focus) {
-            if (entityFinderInfo.isPresent()) indexFlag = retreat(true);
+            if (entityFinderInfo.isPresent()) indexFlag = retreat(true, RetreatReason.FOCUS);
             else if (deployPlaceFlag) indexFlag = opeHandler.onRetreat(this);
         }
 
@@ -262,7 +277,6 @@ public class Operator {
         OperatorEntity created = this.getType().createEntityInstance(this, player);
         created.setPos(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
         this.getType().onDeploy(created, player, this);
-        EventHooks.onDeploy(player, this, created, isRedeploy);
         player.serverLevel().addFreshEntity(created);
     }
 
@@ -274,26 +288,41 @@ public class Operator {
      * @return <0 -> 不被允许的撤退或不支持的部署位置索引  否则为对应的部署位置索引
      */
     @SuppressWarnings("deprecation")
-    public int retreat(boolean focus) {
-        if (!focus && opeHandler.owner() == null) return -1;
+    public int retreat(boolean focus, RetreatReason reason) {
 
-        Optional<ResourceLocation> state = identifier.type.allowRetreat(entity, opeHandler.ownerOrUUID(), this) ? EventHooks.allowOperatorRetreat(opeHandler.owner(), this, entity) : Optional.empty();
-        if (state.isPresent()) {
-            disconnectWithEntity(Entity.RemovalReason.UNLOADED_WITH_PLAYER, state.get());
+        if (focus) {
+            disconnectWithEntity();
             return opeHandler.onRetreat(this);
         }
 
-        if (focus) {
-            disconnectWithEntity(Entity.RemovalReason.DISCARDED, STATUS_REST);
+        if (opeHandler.owner() == null) return -1;
+
+        Optional<ResourceLocation> state = identifier.type.allowRetreat(entity, opeHandler.ownerOrUUID(), this, reason) ? EventHooks.preRetreat(opeHandler.owner(), this, reason) : Optional.empty();
+        if (state.isPresent()) {
+            disconnectWithEntity(Entity.RemovalReason.UNLOADED_WITH_PLAYER, state.get(), reason);
             return opeHandler.onRetreat(this);
         }
         return -1;
     }
 
+    public enum RetreatReason {
+        UNLOADED_WITH_PLAYER,
+        RETREAT,
+        KILLED,
+        PLAYER_FAILED,
+        TELEPORT_FAILED,
+        MISSION_ACCOMPLISHED,
+        MISSION_FAILED,
+        FOCUS,
+        TRUE,
+        FALSE,
+        MISC
+    }
+
     //当干员死亡 不处理死亡行为本身
     @SuppressWarnings("deprecation")
     public void onOperatorDead() {
-        disconnectWithEntity(Entity.RemovalReason.KILLED, STATUS_REST);
+        disconnectWithEntity(Entity.RemovalReason.KILLED, STATUS_REST, RetreatReason.KILLED);
         opeHandler.onRetreat(this);
     }
 
@@ -336,6 +365,28 @@ public class Operator {
 
     public void markLastPos(LevelAndPosRecorder recorder) {
         entityFinderInfo.ifPresent(info -> info.posRecorder = recorder);
+    }
+
+    public boolean addInfo(OperatorInfo info) {
+        if (infos.containsKey(info.codec())) return false;
+        infos.put(info.codec(), info);
+        return true;
+    }
+
+    public boolean removeInfo(OperatorInfo info) {
+        return removeInfo(info.codec());
+    }
+
+    public boolean removeInfo(MapCodec<? extends OperatorInfo> info) {
+        if (infos.containsKey(info)) {
+            infos.remove(info);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean containsInfo(MapCodec<? extends OperatorInfo> info) {
+        return infos.containsKey(info);
     }
 
 

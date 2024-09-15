@@ -1,7 +1,9 @@
 package com.phasetranscrystal.nonatomic.core;
 
 import com.mojang.datafixers.util.Either;
+import com.phasetranscrystal.nonatomic.Registries;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
@@ -22,7 +24,7 @@ public abstract class OperatorType {
     public abstract @Nullable EntityType<? extends OperatorEntity> getEntityType();
 
     public OperatorEntity createEntityInstance(Operator operator, ServerPlayer belonging) {
-        return new OperatorEntity(getEntityType(), (ServerLevel) belonging.level(), belonging, operator);
+        return new OperatorEntity(getEntityType(), operator, belonging);
     }
 
     public BlockPos findPlaceForGenerate(ServerPlayer player, @Nullable BlockPos pos) {
@@ -40,7 +42,7 @@ public abstract class OperatorType {
         int safeFlag = 0;
         for (int x = -8; x <= 8; x++) {
             for (int z = -8; z <= 8; z++) {
-                for (int y = 4 + 2; y >= -1 - 1; y--) {
+                for (int y = 4 + 2; y >= -3 - 1; y--) {
                     pos = player.blockPosition().offset(x, y, z);
                     if (safeFlag != 2) {
                         if (level.getBlockState(pos).isAir()) safeFlag++;
@@ -81,10 +83,15 @@ public abstract class OperatorType {
     public void onDeploy(OperatorEntity entity, Player player, Operator operator) {
     }
 
-    public boolean allowRetreat(OperatorEntity entity, Either<ServerPlayer, UUID> player, Operator operator) {
+    public boolean allowRetreat(OperatorEntity entity, Either<ServerPlayer, UUID> player, Operator operator, Operator.RetreatReason reason) {
         return true;
     }
 
     public void onRetreat(Either<ServerPlayer, UUID> player, Operator operator) {
+    }
+
+    @Override
+    public String toString() {
+        return Registries.OPERATOR_TYPE.getResourceKey(this).map(ResourceKey::toString).orElse("[unknown]");
     }
 }

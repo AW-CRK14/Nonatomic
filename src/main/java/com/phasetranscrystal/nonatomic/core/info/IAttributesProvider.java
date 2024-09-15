@@ -16,7 +16,7 @@ import java.util.Collection;
 import java.util.HashSet;
 
 public interface IAttributesProvider extends IBelongingOperatorProvider {
-    Logger LOGGER = LogManager.getLogger("BreaNonatomic:OpeInfo:AttributesProvider");
+    Logger LOGGER = LogManager.getLogger("BreaNona:OpeInfo/AttributesProvider");
 
     Collection<MarkedModifier> getAttributes();
 
