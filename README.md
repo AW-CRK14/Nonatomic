@@ -1,5 +1,6 @@
 瓦解核心：非原子单位 | Brea:Nonatomic
 =======
+![clash](/nona_long.png)
 
 [click here to read English version](README_en.md)
 
