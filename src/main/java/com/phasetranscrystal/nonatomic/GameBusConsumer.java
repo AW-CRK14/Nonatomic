@@ -56,7 +56,7 @@ public class GameBusConsumer {
             event.setCanceled(true);
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
+    @SubscribeEvent(priority = EventPriority.LOW)
     public static void checkOperatorEntity(EntityJoinLevelEvent event) {
         if (event.getLevel() instanceof ServerLevel serverLevel && event.getEntity() instanceof OperatorEntity opeEntity) {
             if (opeEntity.getIdentifier() != null && opeEntity.getBelongingUUID() != null && opeEntity.getContainerID() != null) {
